@@ -13,83 +13,145 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export default function ManageSection({ initialPosts }: { initialPosts: PostMeta[] }) {
-  const [posts, setPosts] = useState(initialPosts);
-  const [secret, setSecret] = useState("");
-  const [status, setStatus] = useState<Record<string, "loading" | "error">>({});
+type ItemStatus = "loading" | "error" | undefined;
 
-  if (posts.length === 0) return null;
+function PostRow({
+  post,
+  secret,
+  action,
+  actionLabel,
+  destructive,
+}: {
+  post: PostMeta;
+  secret: string;
+  action: (slug: string, secret: string) => Promise<boolean>;
+  actionLabel: string;
+  destructive?: boolean;
+}) {
+  const [status, setStatus] = useState<ItemStatus>();
+  const [done, setDone] = useState(false);
+  const slug = post.slug.join("/");
 
-  async function handleUnpublish(slug: string) {
-    if (!secret) return;
-    setStatus((s) => ({ ...s, [slug]: "loading" }));
+  if (done) return null;
 
-    const res = await fetch("/api/unpublish", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-publish-secret": secret,
-      },
-      body: JSON.stringify({ slug }),
-    });
-
-    if (res.ok) {
-      setPosts((p) => p.filter((post) => post.slug.join("/") !== slug));
-      setStatus((s) => { const next = { ...s }; delete next[slug]; return next; });
-    } else {
-      setStatus((s) => ({ ...s, [slug]: "error" }));
-    }
+  async function handleClick() {
+    if (!secret || status === "loading") return;
+    setStatus("loading");
+    const ok = await action(slug, secret);
+    if (ok) setDone(true);
+    else setStatus("error");
   }
+
+  return (
+    <div className="flex items-center justify-between gap-4 py-3 border-b border-cream-200 last:border-0">
+      <div className="min-w-0">
+        <span className="font-display text-[0.95rem] text-ink block truncate">
+          {post.title || <span className="italic text-ink-faint">untitled note</span>}
+        </span>
+        <span className="text-[0.68rem] text-ink-faint font-sans tracking-wide">
+          {formatDate(post.date)}
+          {post.type === "note" && (
+            <span className="ml-2 text-spice-muted">note</span>
+          )}
+        </span>
+      </div>
+      <button
+        onClick={handleClick}
+        disabled={!secret || status === "loading"}
+        className={`shrink-0 text-xs font-sans transition-colors duration-200 disabled:opacity-30 ${
+          status === "error"
+            ? "text-red-500"
+            : destructive
+            ? "text-ink-faint hover:text-red-500"
+            : "text-spice hover:text-ink"
+        }`}
+      >
+        {status === "loading" ? "..." : status === "error" ? "failed - retry" : actionLabel}
+      </button>
+    </div>
+  );
+}
+
+async function callApi(endpoint: string, slug: string, secret: string): Promise<boolean> {
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-publish-secret": secret,
+    },
+    body: JSON.stringify({ slug }),
+  });
+  return res.ok;
+}
+
+export default function ManageSection({
+  published,
+  drafts,
+}: {
+  published: PostMeta[];
+  drafts: PostMeta[];
+}) {
+  const [secret, setSecret] = useState("");
+
+  if (published.length === 0 && drafts.length === 0) return null;
 
   return (
     <section>
       <div className="h-px bg-cream-200 my-12" />
-      <p className="text-xs text-ink-faint tracking-widest uppercase font-sans mb-6">
-        Published posts
-      </p>
 
-      <div className="mb-5">
+      <div className="mb-6">
         <input
           type="password"
-          placeholder="Publish secret to unpublish"
+          placeholder="Publish secret"
           value={secret}
           onChange={(e) => setSecret(e.target.value)}
           className="w-full rounded-xl border border-cream-200 bg-cream-50 px-4 py-2.5 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-spice font-sans"
         />
+        <p className="text-[0.68rem] text-ink-faint font-sans mt-2">
+          Required to publish drafts or unpublish posts.
+        </p>
       </div>
 
-      <div>
-        {posts.map((post) => {
-          const slug = post.slug.join("/");
-          const st = status[slug];
-          return (
-            <div
-              key={slug}
-              className="flex items-center justify-between gap-4 py-3 border-b border-cream-200 last:border-0"
-            >
-              <div className="min-w-0">
-                <span className="font-display text-[0.95rem] text-ink block truncate">
-                  {post.title}
-                </span>
-                <span className="text-[0.68rem] text-ink-faint font-sans tracking-wide">
-                  {formatDate(post.date)}
-                </span>
-              </div>
-              <button
-                onClick={() => handleUnpublish(slug)}
-                disabled={!secret || st === "loading"}
-                className={`shrink-0 text-xs font-sans transition-colors duration-200 disabled:opacity-30 ${
-                  st === "error"
-                    ? "text-red-500"
-                    : "text-ink-faint hover:text-red-500"
-                }`}
-              >
-                {st === "loading" ? "removing..." : st === "error" ? "failed - retry" : "unpublish"}
-              </button>
-            </div>
-          );
-        })}
-      </div>
+      {/* Drafts */}
+      {drafts.length > 0 && (
+        <div className="mb-8">
+          <p className="text-[0.68rem] text-ink-faint tracking-widest uppercase font-sans mb-3">
+            Drafts
+          </p>
+          <div>
+            {drafts.map((post) => (
+              <PostRow
+                key={post.slug.join("/")}
+                post={post}
+                secret={secret}
+                actionLabel="publish"
+                action={(slug, s) => callApi("/api/publish-draft", slug, s)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Published */}
+      {published.length > 0 && (
+        <div>
+          <p className="text-[0.68rem] text-ink-faint tracking-widest uppercase font-sans mb-3">
+            Published
+          </p>
+          <div>
+            {published.map((post) => (
+              <PostRow
+                key={post.slug.join("/")}
+                post={post}
+                secret={secret}
+                actionLabel="unpublish"
+                destructive
+                action={(slug, s) => callApi("/api/unpublish", slug, s)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

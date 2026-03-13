@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import PostCard from "./PostCard";
+import NoteCard from "./NoteCard";
 import type { PostMeta } from "@/lib/posts";
 
 export default function PostList({ posts }: { posts: PostMeta[] }) {
@@ -52,13 +53,21 @@ export default function PostList({ posts }: { posts: PostMeta[] }) {
         </p>
       ) : (
         <div>
-          {filtered.map((post) => (
-            <PostCard
-              key={post.slug.join("/")}
-              post={post}
-              onTagClick={handleTagClick}
-            />
-          ))}
+          {filtered.map((post) =>
+            post.type === "note" ? (
+              <NoteCard
+                key={post.slug.join("/")}
+                post={post}
+                onTagClick={handleTagClick}
+              />
+            ) : (
+              <PostCard
+                key={post.slug.join("/")}
+                post={post}
+                onTagClick={handleTagClick}
+              />
+            )
+          )}
         </div>
       )}
     </div>

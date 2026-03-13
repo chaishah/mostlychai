@@ -10,6 +10,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const CONTENT_DIR = path.join(process.cwd(), "content/posts");
 
+export type PostType = "post" | "note";
+
 export interface PostMeta {
   slug: string[];
   title: string;
@@ -17,6 +19,7 @@ export interface PostMeta {
   description: string;
   tags: string[];
   readingTime: number;
+  type: PostType;
 }
 
 export interface Post extends PostMeta {
@@ -40,6 +43,8 @@ interface ParsedMarkdownPost {
   description: string;
   tags: string[];
   contentMd: string;
+  type: PostType;
+  draft: boolean;
 }
 
 export interface PublishPostInput {
@@ -79,7 +84,7 @@ function normalizeSlug(input: unknown, fallbackTitle: string): string[] {
     if (parts.length > 0) return parts;
   }
 
-  if (typeof input === 'string') {
+  if (typeof input === "string") {
     const parts = input
       .split("/")
       .map((part) => slugify(part))
@@ -90,7 +95,13 @@ function normalizeSlug(input: unknown, fallbackTitle: string): string[] {
   return [slugify(fallbackTitle) || "untitled"];
 }
 
+function parseType(data: Record<string, unknown>): PostType {
+  return data.type === "note" ? "note" : "post";
+}
+
 function rowToMeta(row: StoredPostRow): PostMeta {
+  // Parse type from the stored frontmatter — no schema column needed
+  const { data } = matter(row.content_md);
   return {
     slug: row.slug.split("/"),
     title: row.title,
@@ -98,6 +109,7 @@ function rowToMeta(row: StoredPostRow): PostMeta {
     description: row.description ?? "",
     tags: Array.isArray(row.tags) ? row.tags : [],
     readingTime: estimateReadingTime(row.content_md),
+    type: parseType(data),
   };
 }
 
@@ -175,6 +187,9 @@ async function getAllPostMetaFromFiles(): Promise<PostMeta[]> {
     const raw = fs.readFileSync(filePath, "utf8");
     const { data, content } = matter(raw);
 
+    // Skip local drafts
+    if (data.draft === true) continue;
+
     posts.push({
       slug,
       title: data.title ?? slug[slug.length - 1],
@@ -182,6 +197,7 @@ async function getAllPostMetaFromFiles(): Promise<PostMeta[]> {
       description: data.description ?? "",
       tags: Array.isArray(data.tags) ? data.tags : [],
       readingTime: estimateReadingTime(content),
+      type: parseType(data),
     });
   }
 
@@ -203,6 +219,7 @@ async function getPostFromFiles(slug: string[]): Promise<Post | null> {
     tags: Array.isArray(data.tags) ? data.tags : [],
     readingTime: estimateReadingTime(content),
     content: await renderMarkdown(content),
+    type: parseType(data),
   };
 }
 
@@ -212,13 +229,17 @@ export function isPublishingConfigured(): boolean {
 
 export function parseMarkdownPost(source: string): ParsedMarkdownPost {
   const { data, content } = matter(source);
+  const type = parseType(data);
   const title = String(data.title ?? "").trim();
 
-  if (!title) {
+  // Title is required for posts but optional for notes
+  if (!title && type !== "note") {
     throw new Error("Missing `title` in frontmatter.");
   }
 
-  const slug = normalizeSlug(data.slug, title);
+  // Untitled notes get a slug from their date
+  const slugFallback = title || `note-${normalizeDate(data.date)}`;
+  const slug = normalizeSlug(data.slug, slugFallback);
 
   return {
     slug,
@@ -229,6 +250,8 @@ export function parseMarkdownPost(source: string): ParsedMarkdownPost {
       ? data.tags.map((tag) => String(tag).trim()).filter(Boolean)
       : [],
     contentMd: content.trim(),
+    type,
+    draft: data.draft === true,
   };
 }
 
@@ -263,7 +286,7 @@ export function buildMarkdownPost(input: PublishPostInput): string {
   return frontmatterLines.join("\n");
 }
 
-export async function publishMarkdownPost(source: string): Promise<{ slug: string[] }> {
+export async function publishMarkdownPost(source: string): Promise<{ slug: string[]; draft: boolean }> {
   const parsed = parseMarkdownPost(source);
   const admin = getSupabaseAdmin();
 
@@ -274,7 +297,7 @@ export async function publishMarkdownPost(source: string): Promise<{ slug: strin
     description: parsed.description,
     tags: parsed.tags,
     content_md: parsed.contentMd,
-    published: true,
+    published: !parsed.draft,
     updated_at: new Date().toISOString(),
   };
 
@@ -286,7 +309,39 @@ export async function publishMarkdownPost(source: string): Promise<{ slug: strin
     throw new Error(error.message);
   }
 
-  return { slug: parsed.slug };
+  return { slug: parsed.slug, draft: parsed.draft };
+}
+
+export async function getAllDrafts(): Promise<PostMeta[]> {
+  if (!hasSupabaseConfig()) return [];
+
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("posts")
+    .select("slug,title,date,description,tags,content_md,published")
+    .eq("published", false)
+    .order("date", { ascending: false });
+
+  if (error || !data) return [];
+  return (data as StoredPostRow[]).map(rowToMeta);
+}
+
+export async function publishDraft(slug: string): Promise<void> {
+  const admin = getSupabaseAdmin();
+  const { error } = await admin
+    .from("posts")
+    .update({ published: true, updated_at: new Date().toISOString() })
+    .eq("slug", slug);
+  if (error) throw new Error(error.message);
+}
+
+export async function unpublishPost(slug: string): Promise<void> {
+  const admin = getSupabaseAdmin();
+  const { error } = await admin
+    .from("posts")
+    .update({ published: false, updated_at: new Date().toISOString() })
+    .eq("slug", slug);
+  if (error) throw new Error(error.message);
 }
 
 export async function getAllSlugs(): Promise<string[][]> {
@@ -326,15 +381,6 @@ export async function getAllPostMeta(): Promise<PostMeta[]> {
   }
 
   return (data as StoredPostRow[]).map(rowToMeta);
-}
-
-export async function unpublishPost(slug: string): Promise<void> {
-  const admin = getSupabaseAdmin();
-  const { error } = await admin
-    .from("posts")
-    .update({ published: false, updated_at: new Date().toISOString() })
-    .eq("slug", slug);
-  if (error) throw new Error(error.message);
 }
 
 export async function getPost(slug: string[]): Promise<Post | null> {

@@ -61,14 +61,37 @@ export default async function PostPage({ params }: PageProps) {
               {formatDate(post.date)}
             </p>
           )}
-          <h1 className="font-display text-5xl leading-tight mb-5">{post.title}</h1>
-          {post.description && (
-            <p className="text-xl text-ink-soft leading-relaxed font-display italic mb-6">
-              {post.description}
-            </p>
+
+          {post.type === "note" ? (
+            /* Note header — compact, no big title */
+            <>
+              {post.title && (
+                <p className="text-[0.68rem] text-ink-faint font-sans tracking-widest uppercase mb-3">
+                  {post.title}
+                </p>
+              )}
+              {post.description && (
+                <p className="font-display italic text-2xl leading-relaxed text-ink mb-6">
+                  {post.description}
+                </p>
+              )}
+            </>
+          ) : (
+            /* Post header — full treatment */
+            <>
+              <h1 className="font-display text-5xl leading-tight mb-5">{post.title}</h1>
+              {post.description && (
+                <p className="text-xl text-ink-soft leading-relaxed font-display italic mb-6">
+                  {post.description}
+                </p>
+              )}
+            </>
           )}
+
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs text-ink-faint font-sans">{post.readingTime} min read</span>
+            {post.type !== "note" && (
+              <span className="text-xs text-ink-faint font-sans">{post.readingTime} min read</span>
+            )}
             {post.tags.map((tag) => (
               <span
                 key={tag}

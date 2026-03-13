@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getAllPostMeta, isPublishingConfigured, parseMarkdownPost, publishMarkdownPost } from "@/lib/posts";
+import { getAllDrafts, getAllPostMeta, isPublishingConfigured, parseMarkdownPost, publishMarkdownPost } from "@/lib/posts";
 import FileDropZone from "@/components/FileDropZone";
 import ManageSection from "@/components/ManageSection";
 
@@ -46,8 +46,9 @@ async function publishAction(formData: FormData) {
     const result = await publishMarkdownPost(source);
     revalidatePath("/");
     revalidatePath(`/posts/${result.slug.join("/")}`);
+    const status = result.draft ? "draft" : "success";
     redirect(
-      `/publish?success=${encodeURIComponent(result.slug.join("/"))}&title=${encodeURIComponent(parsed.title)}`
+      `/publish?${status}=${encodeURIComponent(result.slug.join("/"))}&title=${encodeURIComponent(parsed.title)}`
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unable to publish post.";
@@ -57,10 +58,12 @@ async function publishAction(formData: FormData) {
 
 function getAlert(params: Record<string, string | string[] | undefined>) {
   const success = typeof params.success === "string" ? params.success : "";
+  const draft = typeof params.draft === "string" ? params.draft : "";
   const title = typeof params.title === "string" ? params.title : "";
   const error = typeof params.error === "string" ? params.error : "";
 
   if (success) return { tone: "success" as const, text: `Published "${title || success}" at /posts/${success}` };
+  if (draft) return { tone: "success" as const, text: `Saved "${title || draft}" as a draft. Publish it from the manage section below.` };
   if (error === "config") return { tone: "error" as const, text: "Add NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and PUBLISH_SECRET to enable publishing." };
   if (error === "secret") return { tone: "error" as const, text: "Incorrect publish secret." };
   if (error === "empty") return { tone: "error" as const, text: "Upload a .md file or paste markdown before publishing." };
@@ -73,7 +76,7 @@ export default async function PublishPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [params, posts] = await Promise.all([searchParams, getAllPostMeta()]);
+  const [params, posts, drafts] = await Promise.all([searchParams, getAllPostMeta(), getAllDrafts()]);
   const alert = getAlert(params);
   const configured = isPublishingConfigured();
 
@@ -129,7 +132,7 @@ export default async function PublishPage({
           name="markdown"
           rows={12}
           spellCheck={false}
-          placeholder={`---\ntitle: "Post title"\ndate: "2026-03-14"\ndescription: "Short summary"\ntags: ["notes"]\n---\n\nWrite here.`}
+          placeholder={`# Post\n---\ntitle: "My post"\ndate: "2026-03-14"\ndescription: "Short summary"\ntags: ["notes"]\n---\n\nWrite here.\n\n\n# Note\n---\ntitle: "Quick thought"\ndate: "2026-03-14"\ntype: note\ntags: ["notes"]\n---\n\nNote content goes in description for the home page preview.\n\n\n# Draft (not live until published)\n---\ntitle: "Work in progress"\ndate: "2026-03-14"\ndraft: true\n---\n\nWrite here.`}
           className="w-full rounded-2xl border border-cream-200 bg-cream-50 px-5 py-4 text-sm leading-relaxed text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-spice font-sans resize-none"
         />
 
@@ -152,7 +155,7 @@ export default async function PublishPage({
       </form>
 
       {/* Manage published posts */}
-      <ManageSection initialPosts={posts} />
+      <ManageSection published={posts} drafts={drafts} />
 
       {/* Shortcut reference */}
       <div className="mt-12 rounded-xl border border-cream-200 bg-cream-50 px-5 py-4 space-y-2">
