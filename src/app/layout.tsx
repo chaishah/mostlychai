@@ -21,12 +21,12 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL("https://mostlychai.com"),
   title: {
-    default: "mostly chai",
-    template: "%s — mostly chai",
+    default: "mostlychai",
+    template: "%s - mostlychai",
   },
   description: "Chai's personal blog.",
   openGraph: {
-    siteName: "mostly chai",
+    siteName: "mostlychai",
     type: "website",
   },
   twitter: {
@@ -39,16 +39,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${instrumentSerif.variable} ${dmSans.variable}`}>
       <body className="bg-cream-100 text-ink font-sans min-h-screen flex flex-col">
         <header className="border-b border-cream-200">
-          <div className="max-w-2xl mx-auto px-6 py-5 flex items-center justify-between">
+          <div className="max-w-2xl mx-auto px-6 py-5">
             <Link
               href="/"
               className="font-display italic text-xl text-ink hover:text-spice transition-colors duration-200"
             >
-              mostly chai
+              mostlychai
             </Link>
-            <nav className="flex gap-6 text-xs text-ink-faint tracking-widest uppercase">
-              <Link href="/" className="hover:text-ink transition-colors duration-200">Writing</Link>
-            </nav>
           </div>
         </header>
         <main className="flex-1">{children}</main>

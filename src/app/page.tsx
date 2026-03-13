@@ -14,7 +14,7 @@ export default async function Home() {
           Hi, I&apos;m Chai.
         </h1>
         <p className="text-ink-soft leading-relaxed text-lg mb-8 max-w-lg">
-          I build things on the internet and write about them here — side projects, ideas, and whatever's been on my mind.
+          I build things on the internet and write about them here - side projects, ideas, and whatever's been on my mind.
         </p>
         <div className="flex items-center gap-6">
           <a
