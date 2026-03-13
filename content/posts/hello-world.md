@@ -13,15 +13,15 @@ This is a place for things I think about: slowly, carefully, and without an algo
 
 Drop a `.md` file in `content/posts/` and it becomes a page. For nested posts (a series, for example), create a directory:
 
-```
+```text
 content/posts/
   my-series/
-    index.md       →  /posts/my-series
-    part-one.md    →  /posts/my-series/part-one
+    index.md       -> /posts/my-series
+    part-one.md    -> /posts/my-series/part-one
 ```
 
 Frontmatter controls the title, date, description, and tags. That's all you need.
 
-## Reactions
+## Notes
 
-At the bottom of every post, readers can leave a ❤️, 👍, or 👎. Nothing else. No comments, no threads - just a quiet signal.
+This site stays intentionally simple: posts, tags, and a clean reading experience. No accounts, no comment threads, and no extra ceremony around publishing.

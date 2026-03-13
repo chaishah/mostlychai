@@ -2,8 +2,6 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getPost, getAllSlugs } from "@/lib/posts";
-import { getReactions } from "@/lib/reactions";
-import ReactionBar from "@/components/ReactionBar";
 
 interface PageProps {
   params: Promise<{ slug: string[] }>;
@@ -43,9 +41,6 @@ export default async function PostPage({ params }: PageProps) {
   const { slug } = await params;
   const post = await getPost(slug);
   if (!post) notFound();
-
-  const postKey = slug.join("/");
-  const initialCounts = await getReactions(postKey);
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-16">
@@ -87,13 +82,6 @@ export default async function PostPage({ params }: PageProps) {
           className="prose prose-lg max-w-none"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
-
-        <hr className="my-14 border-cream-200" />
-
-        <div>
-          <p className="text-xs text-ink-faint mb-4 tracking-widest uppercase font-sans">Did this resonate?</p>
-          <ReactionBar postKey={postKey} initialCounts={initialCounts} />
-        </div>
       </article>
     </div>
   );
