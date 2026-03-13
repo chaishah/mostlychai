@@ -40,6 +40,15 @@ interface ParsedMarkdownPost {
   contentMd: string;
 }
 
+export interface PublishPostInput {
+  title: string;
+  date?: string;
+  description?: string;
+  tags?: string[];
+  slug?: string;
+  contentMd: string;
+}
+
 let supabaseAdmin: SupabaseClient | null = null;
 
 function estimateReadingTime(text: string): number {
@@ -217,6 +226,37 @@ export function parseMarkdownPost(source: string): ParsedMarkdownPost {
       : [],
     contentMd: content.trim(),
   };
+}
+
+export function buildMarkdownPost(input: PublishPostInput): string {
+  const title = input.title.trim();
+
+  if (!title) {
+    throw new Error("Title is required.");
+  }
+
+  const contentMd = input.contentMd.trim();
+
+  if (!contentMd) {
+    throw new Error("Post content cannot be empty.");
+  }
+
+  const frontmatterLines = [
+    "---",
+    `title: ${JSON.stringify(title)}`,
+    `date: ${JSON.stringify(normalizeDate(input.date))}`,
+    `description: ${JSON.stringify((input.description ?? "").trim())}`,
+    `tags: [${(input.tags ?? []).map((tag) => JSON.stringify(tag.trim())).filter(Boolean).join(", ")}]`,
+  ];
+
+  const normalizedSlug = normalizeSlug(input.slug ?? "", title).join("/");
+  if (normalizedSlug) {
+    frontmatterLines.push(`slug: ${JSON.stringify(normalizedSlug)}`);
+  }
+
+  frontmatterLines.push("---", "", contentMd);
+
+  return frontmatterLines.join("\n");
 }
 
 export async function publishMarkdownPost(source: string): Promise<{ slug: string[] }> {
