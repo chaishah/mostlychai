@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getPost } from "@/lib/posts";
+import { getPost, getAllPostMeta } from "@/lib/posts";
 
 export const dynamic = "force-dynamic";
 
@@ -37,8 +37,12 @@ function formatDate(dateStr: string): string {
 
 export default async function PostPage({ params }: PageProps) {
   const { slug } = await params;
-  const post = await getPost(slug);
+  const [post, allPosts] = await Promise.all([getPost(slug), getAllPostMeta()]);
   if (!post) notFound();
+
+  const currentIndex = allPosts.findIndex((p) => p.slug.join("/") === slug.join("/"));
+  const prevPost = currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null;
+  const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-16">
@@ -81,6 +85,41 @@ export default async function PostPage({ params }: PageProps) {
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
       </article>
+
+      {(prevPost || nextPost) && (
+        <nav className="mt-16 pt-8 border-t border-cream-200 flex justify-between gap-8">
+          {prevPost ? (
+            <Link
+              href={`/posts/${prevPost.slug.join("/")}`}
+              className="group flex flex-col gap-1 max-w-[45%]"
+            >
+              <span className="text-xs text-ink-faint tracking-widest uppercase font-sans group-hover:text-spice transition-colors duration-200">
+                ← Older
+              </span>
+              <span className="font-display text-lg leading-snug text-ink group-hover:text-spice transition-colors duration-200">
+                {prevPost.title}
+              </span>
+            </Link>
+          ) : (
+            <span />
+          )}
+          {nextPost ? (
+            <Link
+              href={`/posts/${nextPost.slug.join("/")}`}
+              className="group flex flex-col gap-1 items-end text-right max-w-[45%]"
+            >
+              <span className="text-xs text-ink-faint tracking-widest uppercase font-sans group-hover:text-spice transition-colors duration-200">
+                Newer →
+              </span>
+              <span className="font-display text-lg leading-snug text-ink group-hover:text-spice transition-colors duration-200">
+                {nextPost.title}
+              </span>
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )}
     </div>
   );
 }

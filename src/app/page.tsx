@@ -1,5 +1,5 @@
 import { getAllPostMeta } from "@/lib/posts";
-import PostCard from "@/components/PostCard";
+import PostList from "@/components/PostList";
 
 export const dynamic = "force-dynamic";
 
@@ -57,11 +57,7 @@ export default async function Home() {
         {posts.length === 0 ? (
           <p className="text-ink-faint mt-8">No posts yet. Publish a markdown file from <code>/publish</code> to get started.</p>
         ) : (
-          <div>
-            {posts.map((post) => (
-              <PostCard key={post.slug.join("/")} post={post} />
-            ))}
-          </div>
+          <PostList posts={posts} />
         )}
       </section>
 

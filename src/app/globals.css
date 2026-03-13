@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Override highlight.js background so our cream pre style takes precedence */
+.hljs {
+  background: transparent !important;
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;

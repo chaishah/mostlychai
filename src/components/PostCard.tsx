@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import type { PostMeta } from "@/lib/posts";
 
@@ -10,7 +12,13 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export default function PostCard({ post }: { post: PostMeta }) {
+export default function PostCard({
+  post,
+  onTagClick,
+}: {
+  post: PostMeta;
+  onTagClick?: (tag: string) => void;
+}) {
   const href = `/posts/${post.slug.join("/")}`;
 
   return (
@@ -29,18 +37,30 @@ export default function PostCard({ post }: { post: PostMeta }) {
             {post.description}
           </p>
         )}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-xs text-ink-faint font-sans">{post.readingTime} min read</span>
-          {post.tags.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="text-xs text-spice-muted bg-spice-light px-2 py-0.5 rounded-full font-sans"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        <span className="text-xs text-ink-faint font-sans">{post.readingTime} min read</span>
       </Link>
+      {post.tags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3">
+          {post.tags.slice(0, 3).map((tag) =>
+            onTagClick ? (
+              <button
+                key={tag}
+                onClick={() => onTagClick(tag)}
+                className="text-xs text-spice-muted bg-spice-light px-2 py-0.5 rounded-full font-sans hover:bg-spice hover:text-cream-50 transition-colors duration-200"
+              >
+                {tag}
+              </button>
+            ) : (
+              <span
+                key={tag}
+                className="text-xs text-spice-muted bg-spice-light px-2 py-0.5 rounded-full font-sans"
+              >
+                {tag}
+              </span>
+            )
+          )}
+        </div>
+      )}
     </article>
   );
 }

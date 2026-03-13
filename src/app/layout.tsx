@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Instrument_Serif, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import "highlight.js/styles/github.css";
 
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
@@ -31,6 +32,11 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
+  },
+  alternates: {
+    types: {
+      "application/rss+xml": "https://mostlychai.com/feed.xml",
+    },
   },
 };
 

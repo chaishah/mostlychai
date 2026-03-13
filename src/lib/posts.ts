@@ -3,7 +3,9 @@ import path from "path";
 import matter from "gray-matter";
 import { remark } from "remark";
 import remarkGfm from "remark-gfm";
-import remarkHtml from "remark-html";
+import remarkRehype from "remark-rehype";
+import rehypeHighlight from "rehype-highlight";
+import rehypeStringify from "rehype-stringify";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const CONTENT_DIR = path.join(process.cwd(), "content/posts");
@@ -102,7 +104,9 @@ function rowToMeta(row: StoredPostRow): PostMeta {
 async function renderMarkdown(markdown: string): Promise<string> {
   const processed = await remark()
     .use(remarkGfm)
-    .use(remarkHtml, { sanitize: false })
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeHighlight, { detect: true })
+    .use(rehypeStringify, { allowDangerousHtml: true })
     .process(markdown);
 
   return processed.toString();

@@ -6,7 +6,9 @@
       "Bash(npx skills:*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:groceryfarm.vercel.app)",
-      "WebFetch(domain:optimise-leave.vercel.app)"
+      "WebFetch(domain:optimise-leave.vercel.app)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)"
     ]
   }
 }
