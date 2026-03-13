@@ -41,19 +41,20 @@ async function publishAction(formData: FormData) {
     redirect("/publish?error=empty");
   }
 
+  let redirectTo = "";
   try {
     const parsed = parseMarkdownPost(source);
     const result = await publishMarkdownPost(source);
     revalidatePath("/");
     revalidatePath(`/posts/${result.slug.join("/")}`);
     const status = result.draft ? "draft" : "success";
-    redirect(
-      `/publish?${status}=${encodeURIComponent(result.slug.join("/"))}&title=${encodeURIComponent(parsed.title)}`
-    );
+    redirectTo = `/publish?${status}=${encodeURIComponent(result.slug.join("/"))}&title=${encodeURIComponent(parsed.title)}`;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unable to publish post.";
-    redirect(`/publish?error=${encodeURIComponent(message)}`);
+    redirectTo = `/publish?error=${encodeURIComponent(message)}`;
   }
+
+  redirect(redirectTo);
 }
 
 function getAlert(params: Record<string, string | string[] | undefined>) {
