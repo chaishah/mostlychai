@@ -123,11 +123,10 @@ export default async function PublishPage({
 
       {message && (
         <div
-          className={`mb-8 rounded-2xl border px-5 py-4 text-sm ${
-            message.tone === "success"
-              ? "border-spice/25 bg-spice-light text-spice"
-              : "border-red-200 bg-red-50 text-red-700"
-          }`}
+          className={`mb-8 rounded-2xl border px-5 py-4 text-sm ${message.tone === "success"
+            ? "border-spice/25 bg-spice-light text-spice"
+            : "border-red-200 bg-red-50 text-red-700"
+            }`}
         >
           {message.text}
         </div>
