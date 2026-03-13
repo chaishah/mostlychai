@@ -2,37 +2,21 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { buildMarkdownPost, isPublishingConfigured, parseMarkdownPost, publishMarkdownPost } from "@/lib/posts";
+import { getAllPostMeta, isPublishingConfigured, parseMarkdownPost, publishMarkdownPost } from "@/lib/posts";
+import FileDropZone from "@/components/FileDropZone";
+import ManageSection from "@/components/ManageSection";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Publish",
-  robots: {
-    index: false,
-    follow: false,
-  },
+  robots: { index: false, follow: false },
 };
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 async function publishAction(formData: FormData) {
   "use server";
 
   const secret = String(formData.get("secret") ?? "");
-  const title = String(formData.get("title") ?? "").trim();
-  const date = String(formData.get("date") ?? "").trim();
-  const description = String(formData.get("description") ?? "").trim();
-  const tags = String(formData.get("tags") ?? "")
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-  const slug = String(formData.get("slug") ?? "").trim();
-  const content = String(formData.get("content") ?? "").trim();
-  const markdown = String(formData.get("markdown") ?? "").trim();
-  const file = formData.get("file");
 
   if (!process.env.PUBLISH_SECRET) {
     redirect("/publish?error=config");
@@ -42,94 +26,45 @@ async function publishAction(formData: FormData) {
     redirect("/publish?error=secret");
   }
 
+  const file = formData.get("file");
+  const markdown = String(formData.get("markdown") ?? "").trim();
+
   let source = "";
 
-  if (title || content || description || tags.length > 0 || date || slug) {
-    try {
-      source = buildMarkdownPost({
-        title,
-        date,
-        description,
-        tags,
-        slug,
-        contentMd: content,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to build post.";
-      redirect(`/publish?error=${encodeURIComponent(message)}`);
-    }
-  }
-
-  if (!source && markdown) {
-    source = markdown;
-  }
-
-  if (!source && file instanceof File && file.size > 0) {
+  if (file instanceof File && file.size > 0) {
     source = (await file.text()).trim();
+  } else if (markdown) {
+    source = markdown;
   }
 
   if (!source) {
     redirect("/publish?error=empty");
   }
 
-  let publishedSlug = "";
-  let publishedTitle = "";
-
   try {
     const parsed = parseMarkdownPost(source);
     const result = await publishMarkdownPost(source);
-    publishedSlug = result.slug.join("/");
-    publishedTitle = parsed.title;
     revalidatePath("/");
-    revalidatePath(`/posts/${publishedSlug}`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to publish post.";
+    revalidatePath(`/posts/${result.slug.join("/")}`);
+    redirect(
+      `/publish?success=${encodeURIComponent(result.slug.join("/"))}&title=${encodeURIComponent(parsed.title)}`
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unable to publish post.";
     redirect(`/publish?error=${encodeURIComponent(message)}`);
   }
-
-  redirect(`/publish?success=${encodeURIComponent(publishedSlug)}&title=${encodeURIComponent(publishedTitle)}`);
 }
 
-function getMessage(searchParams: Record<string, string | string[] | undefined>) {
-  const success = typeof searchParams.success === "string" ? searchParams.success : "";
-  const title = typeof searchParams.title === "string" ? searchParams.title : "";
-  const error = typeof searchParams.error === "string" ? searchParams.error : "";
+function getAlert(params: Record<string, string | string[] | undefined>) {
+  const success = typeof params.success === "string" ? params.success : "";
+  const title = typeof params.title === "string" ? params.title : "";
+  const error = typeof params.error === "string" ? params.error : "";
 
-  if (success) {
-    return {
-      tone: "success" as const,
-      text: `Published ${title || success} at /posts/${success}`,
-    };
-  }
-
-  if (error === "config") {
-    return {
-      tone: "error" as const,
-      text: "Publishing is not configured yet. Add your Supabase env vars and PUBLISH_SECRET first.",
-    };
-  }
-
-  if (error === "secret") {
-    return {
-      tone: "error" as const,
-      text: "That publish secret is incorrect.",
-    };
-  }
-
-  if (error === "empty") {
-    return {
-      tone: "error" as const,
-      text: "Add a title and post body, or paste markdown, or upload a .md file before publishing.",
-    };
-  }
-
-  if (error) {
-    return {
-      tone: "error" as const,
-      text: error,
-    };
-  }
-
+  if (success) return { tone: "success" as const, text: `Published "${title || success}" at /posts/${success}` };
+  if (error === "config") return { tone: "error" as const, text: "Add NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and PUBLISH_SECRET to enable publishing." };
+  if (error === "secret") return { tone: "error" as const, text: "Incorrect publish secret." };
+  if (error === "empty") return { tone: "error" as const, text: "Upload a .md file or paste markdown before publishing." };
+  if (error) return { tone: "error" as const, text: error };
   return null;
 }
 
@@ -138,12 +73,12 @@ export default async function PublishPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const params = await searchParams;
-  const message = getMessage(params);
+  const [params, posts] = await Promise.all([searchParams, getAllPostMeta()]);
+  const alert = getAlert(params);
   const configured = isPublishingConfigured();
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-16">
+    <div className="max-w-2xl mx-auto px-6 py-14">
       <Link
         href="/"
         className="inline-flex items-center gap-1.5 text-xs text-ink-faint hover:text-spice transition-colors duration-200 mb-14 tracking-widest uppercase font-sans"
@@ -152,173 +87,89 @@ export default async function PublishPage({
         <span>Home</span>
       </Link>
 
-      <section className="mb-10">
-        <p className="text-xs text-spice tracking-widest uppercase mb-5 font-sans">publish</p>
-        <h1 className="font-display text-5xl leading-tight mb-5">Publish a post.</h1>
-        <p className="text-ink-soft leading-relaxed text-lg max-w-xl">
-          Fill in the post details and body, then publish directly to Supabase. If you already have a complete markdown file from Obsidian, you can still paste or upload it below.
-        </p>
-      </section>
+      <div className="mb-10">
+        <p className="text-xs text-spice tracking-widest uppercase mb-4 font-sans">publish</p>
+        <h1 className="font-display italic text-4xl leading-tight text-ink">New post.</h1>
+      </div>
 
-      {message && (
+      {alert && (
         <div
-          className={`mb-8 rounded-2xl border px-5 py-4 text-sm ${message.tone === "success"
-            ? "border-spice/25 bg-spice-light text-spice"
-            : "border-red-200 bg-red-50 text-red-700"
-            }`}
+          className={`mb-8 rounded-xl border px-4 py-3 text-sm font-sans ${
+            alert.tone === "success"
+              ? "border-spice/25 bg-spice-light text-spice"
+              : "border-red-200 bg-red-50 text-red-600"
+          }`}
         >
-          {message.text}
+          {alert.text}
         </div>
       )}
 
       {!configured && (
-        <div className="mb-8 rounded-2xl border border-cream-200 bg-cream-50 px-5 py-4 text-sm text-ink-soft">
-          Add <code>NEXT_PUBLIC_SUPABASE_URL</code>, <code>SUPABASE_SERVICE_ROLE_KEY</code>, and <code>PUBLISH_SECRET</code> to enable publishing.
+        <div className="mb-8 rounded-xl border border-cream-200 bg-cream-50 px-4 py-3 text-sm text-ink-soft font-sans">
+          Add <code className="text-spice">NEXT_PUBLIC_SUPABASE_URL</code>,{" "}
+          <code className="text-spice">SUPABASE_SERVICE_ROLE_KEY</code>, and{" "}
+          <code className="text-spice">PUBLISH_SECRET</code> to enable publishing.
         </div>
       )}
 
-      <form action={publishAction} className="space-y-6">
-        <div>
-          <label htmlFor="secret" className="block text-xs text-ink-faint tracking-widest uppercase mb-3 font-sans">
-            Publish secret
-          </label>
+      <form action={publishAction} className="space-y-5">
+        {/* Primary: file upload */}
+        <FileDropZone />
+
+        {/* Secondary: paste raw markdown */}
+        <div className="flex items-center gap-4">
+          <div className="h-px flex-1 bg-cream-200" />
+          <span className="text-[0.68rem] text-ink-faint font-sans tracking-widest uppercase shrink-0">
+            or paste markdown
+          </span>
+          <div className="h-px flex-1 bg-cream-200" />
+        </div>
+
+        <textarea
+          name="markdown"
+          rows={12}
+          spellCheck={false}
+          placeholder={`---\ntitle: "Post title"\ndate: "2026-03-14"\ndescription: "Short summary"\ntags: ["notes"]\n---\n\nWrite here.`}
+          className="w-full rounded-2xl border border-cream-200 bg-cream-50 px-5 py-4 text-sm leading-relaxed text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-spice font-sans resize-none"
+        />
+
+        {/* Secret + submit */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-1">
           <input
-            id="secret"
             name="secret"
             type="password"
             required
-            className="w-full rounded-2xl border border-cream-200 bg-white px-4 py-3 text-sm text-ink outline-none transition-colors focus:border-spice"
+            placeholder="Publish secret"
+            className="flex-1 rounded-xl border border-cream-200 bg-cream-50 px-4 py-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-spice font-sans"
           />
+          <button
+            type="submit"
+            className="rounded-xl bg-ink px-6 py-3 text-sm font-sans text-cream-100 transition-colors hover:bg-spice whitespace-nowrap"
+          >
+            Publish post
+          </button>
         </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <div>
-            <label htmlFor="title" className="block text-xs text-ink-faint tracking-widest uppercase mb-3 font-sans">
-              Title
-            </label>
-            <input
-              id="title"
-              name="title"
-              type="text"
-              placeholder="Post title"
-              className="w-full rounded-2xl border border-cream-200 bg-white px-4 py-3 text-sm text-ink outline-none transition-colors focus:border-spice"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="date" className="block text-xs text-ink-faint tracking-widest uppercase mb-3 font-sans">
-              Date
-            </label>
-            <input
-              id="date"
-              name="date"
-              type="date"
-              defaultValue={today()}
-              className="w-full rounded-2xl border border-cream-200 bg-white px-4 py-3 text-sm text-ink outline-none transition-colors focus:border-spice"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="description" className="block text-xs text-ink-faint tracking-widest uppercase mb-3 font-sans">
-            Description
-          </label>
-          <input
-            id="description"
-            name="description"
-            type="text"
-            placeholder="Short summary for the post card and metadata"
-            className="w-full rounded-2xl border border-cream-200 bg-white px-4 py-3 text-sm text-ink outline-none transition-colors focus:border-spice"
-          />
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <div>
-            <label htmlFor="tags" className="block text-xs text-ink-faint tracking-widest uppercase mb-3 font-sans">
-              Tags
-            </label>
-            <input
-              id="tags"
-              name="tags"
-              type="text"
-              placeholder="notes, project, personal"
-              className="w-full rounded-2xl border border-cream-200 bg-white px-4 py-3 text-sm text-ink outline-none transition-colors focus:border-spice"
-            />
-            <p className="mt-2 text-xs text-ink-faint">Use commas to add multiple tags.</p>
-          </div>
-
-          <div>
-            <label htmlFor="slug" className="block text-xs text-ink-faint tracking-widest uppercase mb-3 font-sans">
-              Custom slug
-            </label>
-            <input
-              id="slug"
-              name="slug"
-              type="text"
-              placeholder="optional/custom-slug"
-              className="w-full rounded-2xl border border-cream-200 bg-white px-4 py-3 text-sm text-ink outline-none transition-colors focus:border-spice"
-            />
-            <p className="mt-2 text-xs text-ink-faint">Leave blank to generate it from the title.</p>
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="content" className="block text-xs text-ink-faint tracking-widest uppercase mb-3 font-sans">
-            Post body
-          </label>
-          <textarea
-            id="content"
-            name="content"
-            rows={18}
-            placeholder={`## Opening\n\nWrite the post in markdown here.\n\n- Lists still work\n- Links still work\n- Headings still work`}
-            className="w-full rounded-3xl border border-cream-200 bg-white px-5 py-4 text-sm leading-7 text-ink outline-none transition-colors focus:border-spice"
-          />
-        </div>
-
-        <div className="rounded-3xl border border-cream-200 bg-cream-50 px-5 py-5">
-          <div className="mb-4">
-            <p className="text-xs text-ink-faint tracking-widest uppercase font-sans">Markdown fallback</p>
-            <p className="mt-2 text-sm text-ink-soft">
-              If you already have a full markdown post with frontmatter, paste it here or upload a file instead of using the fields above.
-            </p>
-          </div>
-
-          <div className="space-y-5">
-            <div>
-              <label htmlFor="markdown" className="block text-xs text-ink-faint tracking-widest uppercase mb-3 font-sans">
-                Raw markdown
-              </label>
-              <textarea
-                id="markdown"
-                name="markdown"
-                rows={10}
-                placeholder={`---\ntitle: "Post title"\ndate: "2026-03-13"\ndescription: "Short summary"\ntags: ["notes"]\n---\n\nWrite here.`}
-                className="w-full rounded-3xl border border-cream-200 bg-white px-5 py-4 text-sm leading-7 text-ink outline-none transition-colors focus:border-spice"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="file" className="block text-xs text-ink-faint tracking-widest uppercase mb-3 font-sans">
-                Or upload a .md file
-              </label>
-              <input
-                id="file"
-                name="file"
-                type="file"
-                accept=".md,text/markdown,text/plain"
-                className="block w-full text-sm text-ink-faint file:mr-4 file:rounded-full file:border-0 file:bg-spice-light file:px-4 file:py-2 file:font-sans file:text-sm file:text-spice"
-              />
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          className="rounded-full bg-ink px-6 py-3 text-sm font-medium text-cream-100 transition-colors hover:bg-spice"
-        >
-          Publish post
-        </button>
       </form>
+
+      {/* Manage published posts */}
+      <ManageSection initialPosts={posts} />
+
+      {/* Shortcut reference */}
+      <div className="mt-12 rounded-xl border border-cream-200 bg-cream-50 px-5 py-4 space-y-2">
+        <p className="text-[0.68rem] text-ink-faint tracking-widest uppercase font-sans">Apple Shortcuts</p>
+        <p className="text-sm text-ink-soft font-sans">
+          Publish: <code className="text-spice text-xs">POST https://mostlychai.com/api/publish</code>
+          <br />
+          Header: <code className="text-spice text-xs">x-publish-secret: your-secret</code>
+          <br />
+          Body: raw <code className="text-spice text-xs">.md</code> file contents (text/plain)
+        </p>
+        <p className="text-sm text-ink-soft font-sans">
+          Unpublish: <code className="text-spice text-xs">POST https://mostlychai.com/api/unpublish</code>
+          <br />
+          Body: <code className="text-spice text-xs">{`{"slug":"my-post-slug"}`}</code>
+        </p>
+      </div>
     </div>
   );
 }

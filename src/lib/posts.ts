@@ -328,6 +328,15 @@ export async function getAllPostMeta(): Promise<PostMeta[]> {
   return (data as StoredPostRow[]).map(rowToMeta);
 }
 
+export async function unpublishPost(slug: string): Promise<void> {
+  const admin = getSupabaseAdmin();
+  const { error } = await admin
+    .from("posts")
+    .update({ published: false, updated_at: new Date().toISOString() })
+    .eq("slug", slug);
+  if (error) throw new Error(error.message);
+}
+
 export async function getPost(slug: string[]): Promise<Post | null> {
   if (!hasSupabaseConfig()) {
     return getPostFromFiles(slug);
