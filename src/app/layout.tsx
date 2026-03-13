@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Lora } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 
 const inter = Inter({
@@ -33,18 +34,18 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${lora.variable}`}>
-      <body className="bg-white text-neutral-900 font-sans min-h-screen">
+      <body className="bg-white text-neutral-900 font-sans min-h-screen flex flex-col">
         <header className="border-b border-neutral-200">
           <div className="max-w-2xl mx-auto px-6 py-5 flex items-center justify-between">
-            <a href="/" className="font-semibold text-lg tracking-tight hover:opacity-70 transition-opacity">
+            <Link href="/" className="font-semibold text-lg tracking-tight hover:opacity-70 transition-opacity">
               mostly chai
-            </a>
+            </Link>
             <nav className="flex gap-6 text-sm text-neutral-500">
-              <a href="/" className="hover:text-neutral-900 transition-colors">Writing</a>
+              <Link href="/" className="hover:text-neutral-900 transition-colors">Writing</Link>
             </nav>
           </div>
         </header>
-        <main>{children}</main>
+        <main className="flex-1">{children}</main>
         <footer className="border-t border-neutral-100 mt-24 py-8">
           <div className="max-w-2xl mx-auto px-6 text-sm text-neutral-400">
             © {new Date().getFullYear()} Chai

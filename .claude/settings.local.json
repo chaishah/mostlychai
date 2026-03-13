@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git pull:*)",
-      "Bash(mv .claude/settings.local.json .claude/settings.local.json.bak && git pull && mv .claude/settings.local.json.bak .claude/settings.local.json 2>&1)"
+      "Bash(mv .claude/settings.local.json .claude/settings.local.json.bak && git pull && mv .claude/settings.local.json.bak .claude/settings.local.json 2>&1)",
+      "Bash(npx skills:*)"
     ]
   }
 }

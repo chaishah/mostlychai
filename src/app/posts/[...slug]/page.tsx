@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getPost, getAllSlugs } from "@/lib/posts";
 import { getReactions } from "@/lib/reactions";
 import ReactionBar from "@/components/ReactionBar";
@@ -48,6 +49,13 @@ export default async function PostPage({ params }: PageProps) {
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-16">
+      <Link
+        href="/"
+        className="inline-flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-700 transition-colors mb-10"
+      >
+        <span aria-hidden="true">←</span>
+        <span>Writing</span>
+      </Link>
       <article>
         <header className="mb-10">
           <h1 className="text-4xl font-semibold leading-tight mb-4">{post.title}</h1>
@@ -66,7 +74,7 @@ export default async function PostPage({ params }: PageProps) {
         </header>
 
         <div
-          className="prose prose-neutral max-w-none font-serif prose-headings:font-sans prose-headings:font-semibold prose-lg prose-a:no-underline prose-a:border-b prose-a:border-neutral-400 hover:prose-a:border-neutral-800"
+          className="prose prose-neutral max-w-none font-serif prose-headings:font-sans prose-headings:font-semibold prose-lg prose-a:no-underline prose-a:border-b prose-a:border-neutral-400"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
 
