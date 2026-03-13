@@ -4,6 +4,7 @@ import matter from "gray-matter";
 import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import remarkHtml from "remark-html";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const CONTENT_DIR = path.join(process.cwd(), "content/posts");
 
@@ -20,9 +21,82 @@ export interface Post extends PostMeta {
   content: string;
 }
 
+interface StoredPostRow {
+  slug: string;
+  title: string;
+  date: string | null;
+  description: string | null;
+  tags: string[] | null;
+  content_md: string;
+  published: boolean | null;
+}
+
+interface ParsedMarkdownPost {
+  slug: string[];
+  title: string;
+  date: string;
+  description: string;
+  tags: string[];
+  contentMd: string;
+}
+
+let supabaseAdmin: SupabaseClient | null = null;
+
 function estimateReadingTime(text: string): number {
-  const words = text.trim().split(/\s+/).length;
+  const trimmed = text.trim();
+  if (!trimmed) return 1;
+  const words = trimmed.split(/\s+/).length;
   return Math.max(1, Math.round(words / 200));
+}
+
+function normalizeDate(value: unknown): string {
+  if (!value) return new Date().toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeSlug(input: unknown, fallbackTitle: string): string[] {
+  if (Array.isArray(input)) {
+    const parts = input.map((part) => slugify(String(part))).filter(Boolean);
+    if (parts.length > 0) return parts;
+  }
+
+  if (typeof input === 'string') {
+    const parts = input
+      .split("/")
+      .map((part) => slugify(part))
+      .filter(Boolean);
+    if (parts.length > 0) return parts;
+  }
+
+  return [slugify(fallbackTitle) || "untitled"];
+}
+
+function rowToMeta(row: StoredPostRow): PostMeta {
+  return {
+    slug: row.slug.split("/"),
+    title: row.title,
+    date: row.date ?? "",
+    description: row.description ?? "",
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    readingTime: estimateReadingTime(row.content_md),
+  };
+}
+
+async function renderMarkdown(markdown: string): Promise<string> {
+  const processed = await remark()
+    .use(remarkGfm)
+    .use(remarkHtml, { sanitize: false })
+    .process(markdown);
+
+  return processed.toString();
 }
 
 function collectMarkdownFiles(dir: string, base: string[] = []): string[][] {
@@ -52,12 +126,33 @@ function resolveFilePath(slug: string[]): string | null {
   return null;
 }
 
-export function getAllSlugs(): string[][] {
-  return collectMarkdownFiles(CONTENT_DIR);
+function hasSupabaseConfig(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-export async function getAllPostMeta(): Promise<PostMeta[]> {
-  const slugs = getAllSlugs();
+function getSupabaseAdmin(): SupabaseClient {
+  if (!hasSupabaseConfig()) {
+    throw new Error("Supabase publishing is not configured.");
+  }
+
+  if (!supabaseAdmin) {
+    supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      }
+    );
+  }
+
+  return supabaseAdmin;
+}
+
+async function getAllPostMetaFromFiles(): Promise<PostMeta[]> {
+  const slugs = collectMarkdownFiles(CONTENT_DIR);
   const posts: PostMeta[] = [];
 
   for (const slug of slugs) {
@@ -80,17 +175,12 @@ export async function getAllPostMeta(): Promise<PostMeta[]> {
   return posts.sort((a, b) => (b.date > a.date ? 1 : -1));
 }
 
-export async function getPost(slug: string[]): Promise<Post | null> {
+async function getPostFromFiles(slug: string[]): Promise<Post | null> {
   const filePath = resolveFilePath(slug);
   if (!filePath) return null;
 
   const raw = fs.readFileSync(filePath, "utf8");
   const { data, content } = matter(raw);
-
-  const processed = await remark()
-    .use(remarkGfm)
-    .use(remarkHtml, { sanitize: false })
-    .process(content);
 
   return {
     slug,
@@ -99,6 +189,123 @@ export async function getPost(slug: string[]): Promise<Post | null> {
     description: data.description ?? "",
     tags: Array.isArray(data.tags) ? data.tags : [],
     readingTime: estimateReadingTime(content),
-    content: processed.toString(),
+    content: await renderMarkdown(content),
+  };
+}
+
+export function isPublishingConfigured(): boolean {
+  return hasSupabaseConfig() && Boolean(process.env.PUBLISH_SECRET);
+}
+
+export function parseMarkdownPost(source: string): ParsedMarkdownPost {
+  const { data, content } = matter(source);
+  const title = String(data.title ?? "").trim();
+
+  if (!title) {
+    throw new Error("Missing `title` in frontmatter.");
+  }
+
+  const slug = normalizeSlug(data.slug, title);
+
+  return {
+    slug,
+    title,
+    date: normalizeDate(data.date),
+    description: String(data.description ?? "").trim(),
+    tags: Array.isArray(data.tags)
+      ? data.tags.map((tag) => String(tag).trim()).filter(Boolean)
+      : [],
+    contentMd: content.trim(),
+  };
+}
+
+export async function publishMarkdownPost(source: string): Promise<{ slug: string[] }> {
+  const parsed = parseMarkdownPost(source);
+  const admin = getSupabaseAdmin();
+
+  const payload = {
+    slug: parsed.slug.join("/"),
+    title: parsed.title,
+    date: parsed.date,
+    description: parsed.description,
+    tags: parsed.tags,
+    content_md: parsed.contentMd,
+    published: true,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await admin
+    .from("posts")
+    .upsert(payload, { onConflict: "slug" });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return { slug: parsed.slug };
+}
+
+export async function getAllSlugs(): Promise<string[][]> {
+  if (!hasSupabaseConfig()) {
+    return collectMarkdownFiles(CONTENT_DIR);
+  }
+
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("posts")
+    .select("slug")
+    .eq("published", true);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data
+    .map((row) => String(row.slug ?? "").split("/").filter(Boolean))
+    .filter((slug) => slug.length > 0);
+}
+
+export async function getAllPostMeta(): Promise<PostMeta[]> {
+  if (!hasSupabaseConfig()) {
+    return getAllPostMetaFromFiles();
+  }
+
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("posts")
+    .select("slug,title,date,description,tags,content_md,published")
+    .eq("published", true)
+    .order("date", { ascending: false });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return (data as StoredPostRow[]).map(rowToMeta);
+}
+
+export async function getPost(slug: string[]): Promise<Post | null> {
+  if (!hasSupabaseConfig()) {
+    return getPostFromFiles(slug);
+  }
+
+  const admin = getSupabaseAdmin();
+  const postSlug = slug.join("/");
+  const { data, error } = await admin
+    .from("posts")
+    .select("slug,title,date,description,tags,content_md,published")
+    .eq("slug", postSlug)
+    .eq("published", true)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const row = data as StoredPostRow;
+
+  return {
+    ...rowToMeta(row),
+    content: await renderMarkdown(row.content_md),
   };
 }

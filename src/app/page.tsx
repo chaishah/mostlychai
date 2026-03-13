@@ -1,6 +1,8 @@
 import { getAllPostMeta } from "@/lib/posts";
 import PostCard from "@/components/PostCard";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const posts = await getAllPostMeta();
 
@@ -53,7 +55,7 @@ export default async function Home() {
         </div>
 
         {posts.length === 0 ? (
-          <p className="text-ink-faint mt-8">No posts yet. Drop a <code>.md</code> file in <code>content/posts/</code> to get started.</p>
+          <p className="text-ink-faint mt-8">No posts yet. Publish a markdown file from <code>/publish</code> to get started.</p>
         ) : (
           <div>
             {posts.map((post) => (
