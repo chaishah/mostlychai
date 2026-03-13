@@ -18,13 +18,14 @@ export default function PostList({ posts }: { posts: PostMeta[] }) {
 
   return (
     <div>
+      {/* Tag filter strip */}
       {allTags.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-4 mb-2">
+        <div className="flex flex-wrap items-center gap-1.5 py-3 mb-1">
           {allTags.map((tag) => (
             <button
               key={tag}
               onClick={() => handleTagClick(tag)}
-              className={`text-xs px-3 py-1 rounded-full font-sans transition-colors duration-200 ${
+              className={`text-[0.68rem] px-2.5 py-0.5 rounded-full font-sans tracking-wide transition-colors duration-200 ${
                 activeTag === tag
                   ? "bg-spice text-cream-50"
                   : "bg-spice-light text-spice-muted hover:bg-spice hover:text-cream-50"
@@ -33,11 +34,22 @@ export default function PostList({ posts }: { posts: PostMeta[] }) {
               {tag}
             </button>
           ))}
+          {activeTag && (
+            <button
+              onClick={() => setActiveTag(null)}
+              className="text-[0.68rem] text-ink-faint font-sans hover:text-spice transition-colors duration-200 ml-1"
+              aria-label="Clear filter"
+            >
+              clear
+            </button>
+          )}
         </div>
       )}
 
       {filtered.length === 0 ? (
-        <p className="text-ink-faint mt-8">No posts tagged &ldquo;{activeTag}&rdquo;.</p>
+        <p className="text-ink-faint text-sm mt-6">
+          No posts tagged &ldquo;{activeTag}&rdquo;.
+        </p>
       ) : (
         <div>
           {filtered.map((post) => (

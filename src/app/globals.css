@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Override highlight.js background so our cream pre style takes precedence */
+/* Override highlight.js background so our pre style shows through */
 .hljs {
   background: transparent !important;
 }
@@ -11,11 +11,14 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: oklch(96.5% 0.009 75);
-    color: oklch(21% 0.016 52);
+    /* cool linen — cream-100 */
+    background-color: oklch(97.2% 0.005 248);
+    /* deep navy-black — ink */
+    color: oklch(17% 0.028 265);
   }
 
   ::selection {
-    background-color: oklch(87% 0.07 38);
+    /* light indigo — spice-light */
+    background-color: oklch(93.5% 0.055 265);
   }
 }
