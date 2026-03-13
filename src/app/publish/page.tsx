@@ -39,16 +39,22 @@ async function publishAction(formData: FormData) {
     redirect("/publish?error=empty");
   }
 
+  let publishedSlug = "";
+  let publishedTitle = "";
+
   try {
     const parsed = parseMarkdownPost(source);
     const result = await publishMarkdownPost(source);
+    publishedSlug = result.slug.join("/");
+    publishedTitle = parsed.title;
     revalidatePath("/");
-    revalidatePath(`/posts/${result.slug.join("/")}`);
-    redirect(`/publish?success=${encodeURIComponent(result.slug.join("/"))}&title=${encodeURIComponent(parsed.title)}`);
+    revalidatePath(`/posts/${publishedSlug}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to publish post.";
     redirect(`/publish?error=${encodeURIComponent(message)}`);
   }
+
+  redirect(`/publish?success=${encodeURIComponent(publishedSlug)}&title=${encodeURIComponent(publishedTitle)}`);
 }
 
 function getMessage(searchParams: Record<string, string | string[] | undefined>) {
