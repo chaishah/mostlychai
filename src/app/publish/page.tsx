@@ -2,9 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getAllDrafts, getAllPostMeta, isPublishingConfigured, parseMarkdownPost, publishMarkdownPost } from "@/lib/posts";
+import { getAllDrafts, getAllPostMeta, isPublishingConfigured, parseMarkdownPost, publishMarkdownPost, uploadImage } from "@/lib/posts";
 import FileDropZone from "@/components/FileDropZone";
+import ImageUploadZone from "@/components/ImageUploadZone";
 import ManageSection from "@/components/ManageSection";
+
+function rewriteImagePaths(markdown: string, imageMap: Map<string, string>): string {
+  return markdown.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
+    if (/^https?:\/\//.test(src) || src.startsWith("/")) return match;
+    const basename = src.split("/").pop() ?? src;
+    const url = imageMap.get(basename);
+    return url ? `![${alt}](${url})` : match;
+  });
+}
 
 export const dynamic = "force-dynamic";
 
@@ -41,8 +51,22 @@ async function publishAction(formData: FormData) {
     redirect("/publish?error=empty");
   }
 
+  // Upload images and rewrite references in markdown
+  const imageFiles = formData
+    .getAll("images")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+
   let redirectTo = "";
   try {
+    if (imageFiles.length > 0) {
+      const imageMap = new Map<string, string>();
+      for (const img of imageFiles) {
+        const url = await uploadImage(img);
+        imageMap.set(img.name, url);
+      }
+      source = rewriteImagePaths(source, imageMap);
+    }
+
     const parsed = parseMarkdownPost(source);
     const result = await publishMarkdownPost(source);
     revalidatePath("/");
@@ -136,6 +160,9 @@ export default async function PublishPage({
           placeholder={`# Post\n---\ntitle: "My post"\ndate: "2026-03-14"\ndescription: "Short summary"\ntags: ["notes"]\n---\n\nWrite here.\n\n\n# Note\n---\ntitle: "Quick thought"\ndate: "2026-03-14"\ntype: note\ntags: ["notes"]\n---\n\nNote content goes in description for the home page preview.\n\n\n# Draft (not live until published)\n---\ntitle: "Work in progress"\ndate: "2026-03-14"\ndraft: true\n---\n\nWrite here.`}
           className="w-full rounded-2xl border border-cream-200 bg-cream-50 px-5 py-4 text-sm leading-relaxed text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-spice font-sans resize-none"
         />
+
+        {/* Images */}
+        <ImageUploadZone />
 
         {/* Secret + submit */}
         <div className="flex flex-col sm:flex-row gap-3 pt-1">

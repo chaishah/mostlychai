@@ -335,6 +335,28 @@ export async function publishDraft(slug: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+export async function uploadImage(file: File): Promise<string> {
+  const admin = getSupabaseAdmin();
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const storagePath = `${unique}.${ext}`;
+
+  const { data, error } = await admin.storage
+    .from("images")
+    .upload(storagePath, file, {
+      contentType: file.type || "image/jpeg",
+      upsert: false,
+    });
+
+  if (error) throw new Error(`Image upload failed: ${error.message}`);
+
+  const { data: { publicUrl } } = admin.storage
+    .from("images")
+    .getPublicUrl(data.path);
+
+  return publicUrl;
+}
+
 export async function unpublishPost(slug: string): Promise<void> {
   const admin = getSupabaseAdmin();
   const { error } = await admin
