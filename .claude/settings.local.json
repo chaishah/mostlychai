@@ -1,14 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git checkout:*)",
-      "Bash(npm install:*)",
-      "Bash(npm info:*)",
-      "Bash(npm list:*)",
-      "Bash(npx next:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git pull:*)",
+      "Bash(mv .claude/settings.local.json .claude/settings.local.json.bak && git pull && mv .claude/settings.local.json.bak .claude/settings.local.json 2>&1)"
     ]
   }
 }
