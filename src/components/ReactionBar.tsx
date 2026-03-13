@@ -68,10 +68,10 @@ export default function ReactionBar({
           type="button"
           onClick={() => handleClick(type)}
           aria-label={`${label}: ${counts[type]}`}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-full border text-sm transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full border text-sm transition-all duration-200 cursor-pointer font-sans ${
             userReaction === type
-              ? "border-neutral-400 bg-neutral-100 text-neutral-900"
-              : "border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800"
+              ? "border-spice bg-spice-light text-spice"
+              : "border-cream-200 text-ink-faint hover:border-cream-300 hover:text-ink-soft"
           }`}
         >
           <span>{emoji}</span>

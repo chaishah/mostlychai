@@ -3,7 +3,10 @@
     "allow": [
       "Bash(git pull:*)",
       "Bash(mv .claude/settings.local.json .claude/settings.local.json.bak && git pull && mv .claude/settings.local.json.bak .claude/settings.local.json 2>&1)",
-      "Bash(npx skills:*)"
+      "Bash(npx skills:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:groceryfarm.vercel.app)",
+      "WebFetch(domain:optimise-leave.vercel.app)"
     ]
   }
 }

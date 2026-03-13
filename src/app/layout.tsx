@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
-import { Inter, Lora } from "next/font/google";
+import { Instrument_Serif, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
-const inter = Inter({
+const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
-  variable: "--font-inter",
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-display",
   display: "swap",
 });
 
-const lora = Lora({
+const dmSans = DM_Sans({
   subsets: ["latin"],
-  variable: "--font-lora",
+  weight: ["300", "400", "500", "600"],
+  variable: "--font-sans",
   display: "swap",
 });
 
@@ -33,21 +36,24 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${lora.variable}`}>
-      <body className="bg-white text-neutral-900 font-sans min-h-screen flex flex-col">
-        <header className="border-b border-neutral-200">
+    <html lang="en" className={`${instrumentSerif.variable} ${dmSans.variable}`}>
+      <body className="bg-cream-100 text-ink font-sans min-h-screen flex flex-col">
+        <header className="border-b border-cream-200">
           <div className="max-w-2xl mx-auto px-6 py-5 flex items-center justify-between">
-            <Link href="/" className="font-semibold text-lg tracking-tight hover:opacity-70 transition-opacity">
+            <Link
+              href="/"
+              className="font-display italic text-xl text-ink hover:text-spice transition-colors duration-200"
+            >
               mostly chai
             </Link>
-            <nav className="flex gap-6 text-sm text-neutral-500">
-              <Link href="/" className="hover:text-neutral-900 transition-colors">Writing</Link>
+            <nav className="flex gap-6 text-xs text-ink-faint tracking-widest uppercase">
+              <Link href="/" className="hover:text-ink transition-colors duration-200">Writing</Link>
             </nav>
           </div>
         </header>
         <main className="flex-1">{children}</main>
-        <footer className="border-t border-neutral-100 mt-24 py-8">
-          <div className="max-w-2xl mx-auto px-6 text-sm text-neutral-400">
+        <footer className="border-t border-cream-200 mt-24 py-8">
+          <div className="max-w-2xl mx-auto px-6 text-xs text-ink-faint">
             © {new Date().getFullYear()} Chai
           </div>
         </footer>

@@ -51,22 +51,32 @@ export default async function PostPage({ params }: PageProps) {
     <div className="max-w-2xl mx-auto px-6 py-16">
       <Link
         href="/"
-        className="inline-flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-700 transition-colors mb-10"
+        className="inline-flex items-center gap-1.5 text-xs text-ink-faint hover:text-spice transition-colors duration-200 mb-14 tracking-widest uppercase font-sans"
       >
         <span aria-hidden="true">←</span>
         <span>Writing</span>
       </Link>
+
       <article>
-        <header className="mb-10">
-          <h1 className="text-4xl font-semibold leading-tight mb-4">{post.title}</h1>
-          {post.description && (
-            <p className="text-xl text-neutral-500 mb-6 leading-relaxed font-serif">{post.description}</p>
+        <header className="mb-12">
+          {post.date && (
+            <p className="text-xs text-ink-faint tracking-widest uppercase mb-5 font-sans">
+              {formatDate(post.date)}
+            </p>
           )}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-400">
-            {post.date && <time dateTime={post.date}>{formatDate(post.date)}</time>}
-            <span>{post.readingTime} min read</span>
+          <h1 className="font-display text-5xl leading-tight mb-5">{post.title}</h1>
+          {post.description && (
+            <p className="text-xl text-ink-soft leading-relaxed font-display italic mb-6">
+              {post.description}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs text-ink-faint font-sans">{post.readingTime} min read</span>
             {post.tags.map((tag) => (
-              <span key={tag} className="bg-neutral-100 text-neutral-500 px-2.5 py-0.5 rounded-full">
+              <span
+                key={tag}
+                className="text-xs text-spice-muted bg-spice-light px-2.5 py-0.5 rounded-full font-sans"
+              >
                 {tag}
               </span>
             ))}
@@ -74,14 +84,14 @@ export default async function PostPage({ params }: PageProps) {
         </header>
 
         <div
-          className="prose prose-neutral max-w-none font-serif prose-headings:font-sans prose-headings:font-semibold prose-lg prose-a:no-underline prose-a:border-b prose-a:border-neutral-400"
+          className="prose prose-lg max-w-none"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
 
-        <hr className="my-12 border-neutral-200" />
+        <hr className="my-14 border-cream-200" />
 
         <div>
-          <p className="text-sm text-neutral-400 mb-3">Did this resonate?</p>
+          <p className="text-xs text-ink-faint mb-4 tracking-widest uppercase font-sans">Did this resonate?</p>
           <ReactionBar postKey={postKey} initialCounts={initialCounts} />
         </div>
       </article>

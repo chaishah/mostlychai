@@ -14,24 +14,28 @@ export default function PostCard({ post }: { post: PostMeta }) {
   const href = `/posts/${post.slug.join("/")}`;
 
   return (
-    <article className="py-8 group">
+    <article className="py-10 border-b border-cream-200 group last:border-b-0">
       <Link href={href} className="block">
-        <h2 className="text-xl font-semibold text-neutral-900 group-hover:text-neutral-500 transition-colors mb-2">
+        {post.date && (
+          <p className="text-xs text-ink-faint tracking-widest uppercase mb-3 font-sans">
+            {formatDate(post.date)}
+          </p>
+        )}
+        <h2 className="font-display text-[1.75rem] leading-snug text-ink group-hover:text-spice transition-colors duration-200 mb-3">
           {post.title}
         </h2>
         {post.description && (
-          <p className="text-neutral-600 mb-3 leading-relaxed line-clamp-2 font-serif">{post.description}</p>
+          <p className="text-ink-soft leading-relaxed line-clamp-2 mb-4 text-[0.95rem]">
+            {post.description}
+          </p>
         )}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-400">
-          {post.date && (
-            <>
-              <time dateTime={post.date}>{formatDate(post.date)}</time>
-              <span aria-hidden="true">·</span>
-            </>
-          )}
-          <span>{post.readingTime} min read</span>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="text-xs text-ink-faint font-sans">{post.readingTime} min read</span>
           {post.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="bg-neutral-100 text-neutral-500 px-2 py-0.5 rounded-full text-xs">
+            <span
+              key={tag}
+              className="text-xs text-spice-muted bg-spice-light px-2 py-0.5 rounded-full font-sans"
+            >
               {tag}
             </span>
           ))}
