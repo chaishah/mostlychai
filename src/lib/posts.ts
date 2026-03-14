@@ -400,6 +400,49 @@ export async function uploadImage(file: File): Promise<string> {
   return publicUrl;
 }
 
+export async function getRawPost(slug: string[]): Promise<{ contentMd: string; title: string } | null> {
+  if (!hasSupabaseConfig()) return null;
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("posts")
+    .select("content_md,title,date,description,tags")
+    .eq("slug", slug.join("/"))
+    .maybeSingle();
+  if (error || !data) return null;
+
+  // Reconstruct full markdown with frontmatter so the editor shows everything
+  const row = data as { content_md: string; title: string; date: string | null; description: string | null; tags: string[] | null };
+  const tagList = (row.tags ?? []).map((t) => JSON.stringify(t)).join(", ");
+  const reconstructed = [
+    "---",
+    `title: ${JSON.stringify(row.title)}`,
+    `date: ${JSON.stringify(row.date ?? "")}`,
+    `description: ${JSON.stringify(row.description ?? "")}`,
+    `tags: [${tagList}]`,
+    "---",
+    "",
+    row.content_md,
+  ].join("\n");
+
+  return { contentMd: reconstructed, title: row.title };
+}
+
+export async function updatePost(slug: string[], source: string): Promise<void> {
+  const parsed = parseMarkdownPost(source);
+  const admin = getSupabaseAdmin();
+  const { error } = await admin
+    .from("posts")
+    .update({
+      content_md: parsed.contentMd,
+      title: parsed.title,
+      description: parsed.description,
+      tags: parsed.tags,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("slug", slug.join("/"));
+  if (error) throw new Error(error.message);
+}
+
 export async function unpublishPost(slug: string): Promise<void> {
   const admin = getSupabaseAdmin();
   const { error } = await admin

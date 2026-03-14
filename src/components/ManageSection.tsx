@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { PostMeta } from "@/lib/posts";
 
 function formatDate(dateStr: string): string {
@@ -44,7 +45,7 @@ function PostRow({
 
   return (
     <div className="flex items-center justify-between gap-4 py-3 border-b border-cream-200 last:border-0">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <span className="font-display text-[0.95rem] text-ink block truncate">
           {post.title || <span className="italic text-ink-faint">untitled note</span>}
         </span>
@@ -55,19 +56,27 @@ function PostRow({
           )}
         </span>
       </div>
-      <button
-        onClick={handleClick}
-        disabled={!secret || status === "loading"}
-        className={`shrink-0 text-xs font-sans transition-colors duration-200 disabled:opacity-30 ${
-          status === "error"
-            ? "text-red-500"
-            : destructive
-            ? "text-ink-faint hover:text-red-500"
-            : "text-spice hover:text-ink"
-        }`}
-      >
-        {status === "loading" ? "..." : status === "error" ? "failed - retry" : actionLabel}
-      </button>
+      <div className="flex items-center gap-4 shrink-0">
+        <Link
+          href={`/edit/${slug}`}
+          className="text-xs font-sans text-ink-faint hover:text-spice transition-colors duration-200"
+        >
+          edit
+        </Link>
+        <button
+          onClick={handleClick}
+          disabled={!secret || status === "loading"}
+          className={`text-xs font-sans transition-colors duration-200 disabled:opacity-30 ${
+            status === "error"
+              ? "text-red-500"
+              : destructive
+              ? "text-ink-faint hover:text-red-500"
+              : "text-spice hover:text-ink"
+          }`}
+        >
+          {status === "loading" ? "..." : status === "error" ? "failed - retry" : actionLabel}
+        </button>
+      </div>
     </div>
   );
 }
