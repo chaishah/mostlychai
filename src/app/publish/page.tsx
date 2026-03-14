@@ -8,12 +8,22 @@ import ImageUploadZone from "@/components/ImageUploadZone";
 import ManageSection from "@/components/ManageSection";
 
 function rewriteImagePaths(markdown: string, imageMap: Map<string, string>): string {
-  return markdown.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
+  // Handle Obsidian wiki-link style: ![[filename.png]]
+  let result = markdown.replace(/!\[\[([^\]]+)\]\]/g, (match, filename) => {
+    const basename = filename.split("/").pop() ?? filename;
+    const url = imageMap.get(basename);
+    return url ? `![${basename}](${url})` : match;
+  });
+
+  // Handle standard markdown style: ![alt](filename.png)
+  result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
     if (/^https?:\/\//.test(src) || src.startsWith("/")) return match;
     const basename = src.split("/").pop() ?? src;
     const url = imageMap.get(basename);
     return url ? `![${alt}](${url})` : match;
   });
+
+  return result;
 }
 
 export const dynamic = "force-dynamic";

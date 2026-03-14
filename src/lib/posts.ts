@@ -378,9 +378,11 @@ export async function publishDraft(slug: string): Promise<void> {
 
 export async function uploadImage(file: File): Promise<string> {
   const admin = getSupabaseAdmin();
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const storagePath = `${unique}.${ext}`;
+  const safeName = file.name
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "-")
+    .replace(/-+/g, "-");
+  const storagePath = `${Date.now()}-${safeName}`;
 
   const { data, error } = await admin.storage
     .from("images")
