@@ -5,12 +5,19 @@ import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
 import rehypeHighlight from "rehype-highlight";
+import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const CONTENT_DIR = path.join(process.cwd(), "content/posts");
 
 export type PostType = "post" | "note";
+
+export interface Heading {
+  depth: number;
+  text: string;
+  id: string;
+}
 
 export interface PostMeta {
   slug: string[];
@@ -24,6 +31,7 @@ export interface PostMeta {
 
 export interface Post extends PostMeta {
   content: string;
+  headings: Heading[];
 }
 
 interface StoredPostRow {
@@ -113,10 +121,42 @@ function rowToMeta(row: StoredPostRow): PostMeta {
   };
 }
 
+export function extractHeadings(markdown: string): Heading[] {
+  const headings: Heading[] = [];
+  for (const line of markdown.split("\n")) {
+    const match = line.match(/^(#{2,4})\s+(.+)$/);
+    if (match) {
+      const depth = match[1].length;
+      const text = match[2].replace(/[*_`[\]]/g, "").trim();
+      const id = text
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      headings.push({ depth, id, text });
+    }
+  }
+  return headings;
+}
+
+export function getRelatedPosts(currentSlug: string[], allPosts: PostMeta[], limit = 3): PostMeta[] {
+  const currentSlugStr = currentSlug.join("/");
+  const current = allPosts.find((p) => p.slug.join("/") === currentSlugStr);
+  if (!current || current.tags.length === 0) return [];
+  return allPosts
+    .filter((p) => p.slug.join("/") !== currentSlugStr)
+    .map((p) => ({ post: p, score: p.tags.filter((t) => current.tags.includes(t)).length }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ post }) => post);
+}
+
 async function renderMarkdown(markdown: string): Promise<string> {
   const processed = await remark()
     .use(remarkGfm)
     .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeSlug)
     .use(rehypeHighlight, { detect: true })
     .use(rehypeStringify, { allowDangerousHtml: true })
     .process(markdown);
@@ -219,6 +259,7 @@ async function getPostFromFiles(slug: string[]): Promise<Post | null> {
     tags: Array.isArray(data.tags) ? data.tags : [],
     readingTime: estimateReadingTime(content),
     content: await renderMarkdown(content),
+    headings: extractHeadings(content),
     type: parseType(data),
   };
 }
@@ -428,5 +469,6 @@ export async function getPost(slug: string[]): Promise<Post | null> {
   return {
     ...rowToMeta(row),
     content: await renderMarkdown(row.content_md),
+    headings: extractHeadings(row.content_md),
   };
 }

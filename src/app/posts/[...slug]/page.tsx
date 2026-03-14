@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getPost, getAllPostMeta } from "@/lib/posts";
+import { getPost, getAllPostMeta, getRelatedPosts } from "@/lib/posts";
+import TableOfContents from "@/components/TableOfContents";
+import RelatedPosts from "@/components/RelatedPosts";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const post = await getPost(slug);
   if (!post) return {};
+
+  const ogUrl = new URL("https://mostlychai.com/api/og");
+  ogUrl.searchParams.set("title", post.title);
+  if (post.description) ogUrl.searchParams.set("description", post.description);
+  if (post.tags.length) ogUrl.searchParams.set("tags", post.tags.join(","));
+  if (post.date) ogUrl.searchParams.set("date", post.date);
+
   return {
     title: post.title,
     description: post.description || undefined,
@@ -22,6 +31,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       type: "article",
       publishedTime: post.date,
       tags: post.tags,
+      images: [{ url: ogUrl.toString(), width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      images: [ogUrl.toString()],
     },
   };
 }
@@ -43,6 +57,7 @@ export default async function PostPage({ params }: PageProps) {
   const currentIndex = allPosts.findIndex((p) => p.slug.join("/") === slug.join("/"));
   const prevPost = currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null;
   const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
+  const relatedPosts = getRelatedPosts(slug, allPosts);
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-16">
@@ -63,7 +78,6 @@ export default async function PostPage({ params }: PageProps) {
           )}
 
           {post.type === "note" ? (
-            /* Note header — compact, no big title */
             <>
               {post.title && (
                 <p className="text-[0.68rem] text-ink-faint font-sans tracking-widest uppercase mb-3">
@@ -77,7 +91,6 @@ export default async function PostPage({ params }: PageProps) {
               )}
             </>
           ) : (
-            /* Post header — full treatment */
             <>
               <h1 className="font-display text-5xl leading-tight mb-5">{post.title}</h1>
               {post.description && (
@@ -103,11 +116,15 @@ export default async function PostPage({ params }: PageProps) {
           </div>
         </header>
 
+        {post.type !== "note" && <TableOfContents headings={post.headings} />}
+
         <div
           className="prose prose-lg max-w-none"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
       </article>
+
+      <RelatedPosts posts={relatedPosts} />
 
       {(prevPost || nextPost) && (
         <nav className="mt-16 pt-8 border-t border-cream-200 flex justify-between gap-8">
