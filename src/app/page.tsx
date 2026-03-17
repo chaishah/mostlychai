@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { getAllPostMeta } from "@/lib/posts";
 import PostList from "@/components/PostList";
 
@@ -11,9 +12,24 @@ export default async function Home() {
 
       {/* About */}
       <section className="mb-14">
-        <h1 className="font-display text-5xl leading-tight mb-6 text-ink">
-          Hi, I&apos;m Chai.
-        </h1>
+        <div className="flex items-start justify-between gap-6 mb-6">
+          <h1 className="font-display text-5xl leading-tight text-ink">
+            Hi, I&apos;m Chai.
+          </h1>
+          <div className="flex-shrink-0 text-center">
+            <Image
+              src="/chai.jpg"
+              alt="Chai"
+              width={96}
+              height={96}
+              className="rounded-2xl"
+              priority
+            />
+            <p className="text-[0.65rem] text-ink-faint mt-1.5 max-w-[96px] leading-snug">
+              perpetually checking if there&apos;s time for one more.
+            </p>
+          </div>
+        </div>
         <div className="space-y-4 text-ink-soft leading-relaxed text-base">
           <p>
             Each post here is sized for one sitting - long enough to be worth your time, short enough to finish before your chai goes cold.
