@@ -9,15 +9,20 @@ export default async function Home() {
   return (
     <div className="max-w-2xl mx-auto px-6 py-14">
 
-      {/* About — compact, no label */}
-      <section className="mb-12">
-        <h1 className="font-display italic text-5xl leading-tight mb-4 text-ink">
+      {/* About */}
+      <section className="mb-14">
+        <h1 className="font-display text-5xl leading-tight mb-6 text-ink">
           Hi, I&apos;m Chai.
         </h1>
-        <p className="text-ink-soft leading-relaxed mb-6 text-base max-w-sm">
-          I build things on the internet and write about them here - side projects, ideas, and whatever&apos;s been on my mind.
-        </p>
-        <div className="flex items-center gap-5">
+        <div className="space-y-4 text-ink-soft leading-relaxed text-base">
+          <p>
+            Each post here is sized for one sitting - long enough to be worth your time, short enough to finish before your chai goes cold.
+          </p>
+          <p>
+            There are no comments and no likes. I am not here for validation. This is purely a brain dump - things I have been thinking about, building, or trying to figure out. I could absolutely be wrong about most of it. That is kind of the whole point.
+          </p>
+        </div>
+        <div className="flex items-center gap-5 mt-7">
           <a
             href="https://instagram.com/mostlychai"
             target="_blank"
@@ -46,8 +51,11 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Writing — no label, thin rule then list */}
+      {/* Posts */}
       <section>
+        <div className="flex items-baseline justify-between mb-1">
+          <h2 className="text-xs font-sans tracking-widest uppercase text-ink-faint">Posts</h2>
+        </div>
         <div className="h-px bg-cream-200 mb-2" />
         {posts.length === 0 ? (
           <p className="text-ink-faint mt-8 text-sm">
