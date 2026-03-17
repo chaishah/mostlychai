@@ -1,3 +1,5 @@
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,400,300&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,6 +7,11 @@
 /* Override highlight.js background so our pre style shows through */
 .hljs {
   background: transparent !important;
+}
+
+:root {
+  --font-sans: 'Satoshi', sans-serif;
+  --font-display: 'Satoshi', sans-serif;
 }
 
 @layer base {

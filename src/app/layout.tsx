@@ -1,23 +1,7 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import "highlight.js/styles/atom-one-light.css";
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
-  variable: "--font-display",
-  display: "swap",
-});
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
-  variable: "--font-sans",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mostlychai.com"),
@@ -42,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${instrumentSerif.variable} ${dmSans.variable}`}>
+    <html lang="en">
       <body className="bg-cream-100 text-ink font-sans min-h-screen flex flex-col">
         <header className="border-b border-cream-200">
           <div className="max-w-2xl mx-auto px-6 py-5 flex items-center justify-between">
