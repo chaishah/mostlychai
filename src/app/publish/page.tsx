@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import fs from "fs";
-import path from "path";
-import { getAllDrafts, getAllPostMeta, isPublishingConfigured, JSX_POSTS_DIR, parseMarkdownPost, publishMarkdownPost, uploadImage, extractJsxCommentMeta } from "@/lib/posts";
+import { getAllDrafts, getAllPostMeta, isPublishingConfigured, parseMarkdownPost, publishMarkdownPost, publishJsxPost, uploadImage } from "@/lib/posts";
 import FileDropZone from "@/components/FileDropZone";
 import ImageUploadZone from "@/components/ImageUploadZone";
 import ManageSection from "@/components/ManageSection";
@@ -35,45 +33,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
-/** Saves a JSX/TSX post to src/posts/ and registers it in jsx-registry.ts */
-function saveJsxPost(slug: string, source: string): void {
-  // Ensure src/posts/ exists
-  if (!fs.existsSync(JSX_POSTS_DIR)) {
-    fs.mkdirSync(JSX_POSTS_DIR, { recursive: true });
-  }
-
-  // Write the post file
-  const postPath = path.join(JSX_POSTS_DIR, `${slug}.tsx`);
-  fs.writeFileSync(postPath, source, "utf8");
-
-  // Update jsx-registry.ts
-  const registryPath = path.join(process.cwd(), "src/lib/jsx-registry.ts");
-  let registrySource = fs.readFileSync(registryPath, "utf8");
-
-  const entryLine = `  "${slug}": () => import("@/posts/${slug}"),`;
-
-  // Only add if not already present
-  if (!registrySource.includes(`"${slug}"`)) {
-    // Insert the new entry before the closing `};` of the registry object
-    const closingIndex = registrySource.lastIndexOf("};");
-    if (closingIndex !== -1) {
-      registrySource =
-        registrySource.slice(0, closingIndex) +
-        entryLine +
-        "\n" +
-        registrySource.slice(closingIndex);
-    }
-    fs.writeFileSync(registryPath, registrySource, "utf8");
-  }
-}
 
 async function publishAction(formData: FormData) {
   "use server";
@@ -107,20 +67,20 @@ async function publishAction(formData: FormData) {
   let redirectTo = "";
 
   if (contentType === "jsx") {
-    // JSX post: save to src/posts/ and update registry
+    // JSX post: store source in Supabase with content_type = 'jsx'
     try {
-      const meta = extractJsxCommentMeta(source);
       const titleField = String(formData.get("jsx_title") ?? "").trim();
-      const title = meta.title || titleField;
-      if (!title) throw new Error("Add a title - either fill in the title field or add a `// title:` comment.");
-      if (!meta.title) source = `// title: ${title}\n` + source;
-      const slug = slugify(title);
-      saveJsxPost(slug, source);
+      // Prepend // title: comment if not already present
+      if (titleField && !source.match(/^\/\/\s*title:/m)) {
+        source = `// title: ${titleField}\n` + source;
+      }
+      const result = await publishJsxPost(source);
+      const slug = result.slug.join("/");
       revalidatePath("/");
       revalidatePath(`/posts/${slug}`);
-      redirectTo = `/publish?success=${encodeURIComponent(slug)}&title=${encodeURIComponent(meta.title)}`;
+      redirectTo = `/publish?success=${encodeURIComponent(slug)}&title=${encodeURIComponent(titleField || slug)}`;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to save JSX post.";
+      const message = err instanceof Error ? err.message : "Unable to publish JSX post.";
       redirectTo = `/publish?error=${encodeURIComponent(message)}`;
     }
   } else {

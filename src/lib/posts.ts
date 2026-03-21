@@ -44,6 +44,7 @@ interface StoredPostRow {
   description: string | null;
   tags: string[] | null;
   content_md: string;
+  content_type: string | null;
   published: boolean | null;
 }
 
@@ -138,6 +139,18 @@ export function extractJsxCommentMeta(source: string): {
 }
 
 function rowToMeta(row: StoredPostRow): PostMeta {
+  if (row.content_type === "jsx") {
+    return {
+      slug: row.slug.split("/"),
+      title: row.title,
+      date: row.date ?? "",
+      description: row.description ?? "",
+      tags: Array.isArray(row.tags) ? row.tags : [],
+      readingTime: estimateReadingTime(row.content_md),
+      type: "post",
+      contentType: "jsx",
+    };
+  }
   // Parse type from the stored frontmatter — no schema column needed
   const { data } = matter(row.content_md);
   return {
@@ -458,7 +471,7 @@ export async function getAllDrafts(): Promise<PostMeta[]> {
   const admin = getSupabaseAdmin();
   const { data, error } = await admin
     .from("posts")
-    .select("slug,title,date,description,tags,content_md,published")
+    .select("slug,title,date,description,tags,content_md,content_type,published")
     .eq("published", false)
     .order("date", { ascending: false });
 
@@ -504,7 +517,7 @@ export async function getRawPost(slug: string[]): Promise<{ contentMd: string; t
   const admin = getSupabaseAdmin();
   const { data, error } = await admin
     .from("posts")
-    .select("content_md,title,date,description,tags")
+    .select("content_md,content_type,title,date,description,tags")
     .eq("slug", slug.join("/"))
     .maybeSingle();
   if (error || !data) return null;
@@ -582,7 +595,7 @@ export async function getAllPostMeta(): Promise<PostMeta[]> {
   const admin = getSupabaseAdmin();
   const { data, error } = await admin
     .from("posts")
-    .select("slug,title,date,description,tags,content_md,published")
+    .select("slug,title,date,description,tags,content_md,content_type,published")
     .eq("published", true)
     .order("date", { ascending: false });
 
@@ -631,7 +644,7 @@ export async function getPost(slug: string[]): Promise<Post | null> {
   const postSlug = slug.join("/");
   const { data, error } = await admin
     .from("posts")
-    .select("slug,title,date,description,tags,content_md,published")
+    .select("slug,title,date,description,tags,content_md,content_type,published")
     .eq("slug", postSlug)
     .eq("published", true)
     .maybeSingle();
@@ -642,9 +655,45 @@ export async function getPost(slug: string[]): Promise<Post | null> {
 
   const row = data as StoredPostRow;
 
+  if (row.content_type === "jsx") {
+    return {
+      ...rowToMeta(row),
+      content: row.content_md,
+      headings: [],
+    };
+  }
+
   return {
     ...rowToMeta(row),
     content: await renderMarkdown(row.content_md),
     headings: extractHeadings(row.content_md),
   };
+}
+
+export async function publishJsxPost(source: string): Promise<{ slug: string[] }> {
+  const admin = getSupabaseAdmin();
+  const meta = extractJsxCommentMeta(source);
+  if (!meta.title) throw new Error("JSX post must have a // title: comment.");
+
+  const slug = slugify(meta.title);
+
+  const { error } = await admin
+    .from("posts")
+    .upsert(
+      {
+        slug,
+        title: meta.title,
+        date: meta.date,
+        description: meta.description,
+        tags: meta.tags,
+        content_md: source,
+        content_type: "jsx",
+        published: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "slug" }
+    );
+
+  if (error) throw new Error(error.message);
+  return { slug: [slug] };
 }

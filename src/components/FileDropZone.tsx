@@ -133,9 +133,7 @@ export default function FileDropZone() {
 
       {fileType === "jsx" && (
         <p className="text-xs text-ink-faint font-sans px-1">
-          JSX posts are saved to{" "}
-          <code className="text-spice">src/posts/</code> and registered locally.
-          Commit the file + registry update to deploy to production.
+          JSX posts are stored in Supabase and rendered live in the browser.
         </p>
       )}
 
