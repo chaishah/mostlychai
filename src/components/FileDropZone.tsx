@@ -148,6 +148,15 @@ export default function FileDropZone() {
         <div className="h-px flex-1 bg-cream-200" />
       </div>
 
+      {fileType === "jsx" && (
+        <input
+          name="jsx_title"
+          type="text"
+          placeholder="Post title (required)"
+          className="w-full rounded-xl border border-cream-200 bg-cream-50 px-5 py-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-spice font-sans"
+        />
+      )}
+
       {fileType === "jsx" ? (
         <textarea
           key="jsx-paste"

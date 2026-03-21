@@ -110,8 +110,11 @@ async function publishAction(formData: FormData) {
     // JSX post: save to src/posts/ and update registry
     try {
       const meta = extractJsxCommentMeta(source);
-      if (!meta.title) throw new Error("Missing `// title:` comment in JSX file.");
-      const slug = slugify(meta.title);
+      const titleField = String(formData.get("jsx_title") ?? "").trim();
+      const title = meta.title || titleField;
+      if (!title) throw new Error("Add a title - either fill in the title field or add a `// title:` comment.");
+      if (!meta.title) source = `// title: ${title}\n` + source;
+      const slug = slugify(title);
       saveJsxPost(slug, source);
       revalidatePath("/");
       revalidatePath(`/posts/${slug}`);
