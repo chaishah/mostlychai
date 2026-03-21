@@ -70,15 +70,21 @@ async function publishAction(formData: FormData) {
     // JSX post: store source in Supabase with content_type = 'jsx'
     try {
       const titleField = String(formData.get("jsx_title") ?? "").trim();
-      // Prepend // title: comment if not already present
-      if (titleField && !source.match(/^\/\/\s*title:/m)) {
-        source = `// title: ${titleField}\n` + source;
+      const hasInlineTitle = /^\/\/\s*title:/m.test(source);
+
+      if (!hasInlineTitle && !titleField) {
+        redirectTo = `/publish?error=${encodeURIComponent("Fill in the Post title field above the code editor.")}`;
+      } else {
+        // Prepend // title: comment if the source doesn't already have one
+        if (titleField && !hasInlineTitle) {
+          source = `// title: ${titleField}\n` + source;
+        }
+        const result = await publishJsxPost(source);
+        const slug = result.slug.join("/");
+        revalidatePath("/");
+        revalidatePath(`/posts/${slug}`);
+        redirectTo = `/publish?success=${encodeURIComponent(slug)}&title=${encodeURIComponent(titleField || slug)}`;
       }
-      const result = await publishJsxPost(source);
-      const slug = result.slug.join("/");
-      revalidatePath("/");
-      revalidatePath(`/posts/${slug}`);
-      redirectTo = `/publish?success=${encodeURIComponent(slug)}&title=${encodeURIComponent(titleField || slug)}`;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to publish JSX post.";
       redirectTo = `/publish?error=${encodeURIComponent(message)}`;
