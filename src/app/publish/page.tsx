@@ -214,23 +214,6 @@ export default async function PublishPage({
         {/* Primary: file upload */}
         <FileDropZone />
 
-        {/* Secondary: paste raw markdown (only shown for .md mode) */}
-        <div className="flex items-center gap-4">
-          <div className="h-px flex-1 bg-cream-200" />
-          <span className="text-[0.68rem] text-ink-faint font-sans tracking-widest uppercase shrink-0">
-            or paste markdown
-          </span>
-          <div className="h-px flex-1 bg-cream-200" />
-        </div>
-
-        <textarea
-          name="markdown"
-          rows={12}
-          spellCheck={false}
-          placeholder={`# Post\n---\ntitle: "My post"\ndate: "2026-03-14"\ndescription: "Short summary"\ntags: ["notes"]\n---\n\nWrite here.\n\n\n# Note\n---\ntitle: "Quick thought"\ndate: "2026-03-14"\ntype: note\ntags: ["notes"]\n---\n\nNote content goes in description for the home page preview.\n\n\n# Draft (not live until published)\n---\ntitle: "Work in progress"\ndate: "2026-03-14"\ndraft: true\n---\n\nWrite here.`}
-          className="w-full rounded-2xl border border-cream-200 bg-cream-50 px-5 py-4 text-sm leading-relaxed text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-spice font-sans resize-none"
-        />
-
         {/* Images */}
         <ImageUploadZone />
 

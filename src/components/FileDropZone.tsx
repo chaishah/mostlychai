@@ -6,6 +6,7 @@ export default function FileDropZone() {
   const [filename, setFilename] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [fileType, setFileType] = useState<"md" | "jsx">("md");
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   const accept = fileType === "jsx"
@@ -136,6 +137,35 @@ export default function FileDropZone() {
           <code className="text-spice">src/posts/</code> and registered locally.
           Commit the file + registry update to deploy to production.
         </p>
+      )}
+
+      {/* Paste fallback - label and textarea adapt to current type */}
+      <div className="flex items-center gap-4 pt-1">
+        <div className="h-px flex-1 bg-cream-200" />
+        <span className="text-[0.68rem] text-ink-faint font-sans tracking-widest uppercase shrink-0">
+          or paste {fileType === "jsx" ? "jsx" : "markdown"}
+        </span>
+        <div className="h-px flex-1 bg-cream-200" />
+      </div>
+
+      {fileType === "jsx" ? (
+        <textarea
+          key="jsx-paste"
+          name="markdown"
+          rows={12}
+          spellCheck={false}
+          placeholder={`// title: My Interactive Post\n// date: 2026-03-21\n// description: A short summary\n// tags: interactive, demo\n"use client";\n\nimport { useState } from "react";\n\nexport default function MyPost() {\n  const [count, setCount] = useState(0);\n  return (\n    <div>\n      <button onClick={() => setCount(c => c + 1)}>{count}</button>\n    </div>\n  );\n}`}
+          className="w-full rounded-2xl border border-cream-200 bg-cream-50 px-5 py-4 text-xs leading-relaxed text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-spice font-mono resize-none"
+        />
+      ) : (
+        <textarea
+          key="md-paste"
+          name="markdown"
+          rows={12}
+          spellCheck={false}
+          placeholder={`# Post\n---\ntitle: "My post"\ndate: "2026-03-21"\ndescription: "Short summary"\ntags: ["notes"]\n---\n\nWrite here.\n\n\n# Note\n---\ntitle: "Quick thought"\ndate: "2026-03-21"\ntype: note\ntags: ["notes"]\n---\n\nNote content goes in description for the home page preview.\n\n\n# Draft (not live until published)\n---\ntitle: "Work in progress"\ndate: "2026-03-21"\ndraft: true\n---\n\nWrite here.`}
+          className="w-full rounded-2xl border border-cream-200 bg-cream-50 px-5 py-4 text-sm leading-relaxed text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-spice font-sans resize-none"
+        />
       )}
     </div>
   );
