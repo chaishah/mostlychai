@@ -2,8 +2,6 @@
 
 import { useRef, useState } from "react";
 
-const isVercel = !!process.env.NEXT_PUBLIC_VERCEL_ENV;
-
 export default function FileDropZone() {
   const [filename, setFilename] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -134,19 +132,9 @@ export default function FileDropZone() {
       </div>
 
       {fileType === "jsx" && (
-        isVercel ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-sans text-amber-800 leading-relaxed">
-            <span className="font-semibold">JSX posts can't be published from the live site.</span>{" "}
-            The Vercel filesystem is read-only. To publish a JSX post: run{" "}
-            <code className="text-amber-900">npm run dev</code> locally, paste here, then commit and push the generated files.
-          </div>
-        ) : (
-          <p className="text-xs text-ink-faint font-sans px-1">
-            JSX posts are saved to{" "}
-            <code className="text-spice">src/posts/</code> and registered locally.
-            Commit the file + registry update to deploy to production.
-          </p>
-        )
+        <p className="text-xs text-ink-faint font-sans px-1">
+          JSX posts are stored in Supabase and rendered live in the browser.
+        </p>
       )}
 
       {/* Paste fallback - label and textarea adapt to current type */}

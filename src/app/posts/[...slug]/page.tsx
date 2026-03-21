@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getPost, getAllPostMeta, getRelatedPosts } from "@/lib/posts";
 import TableOfContents from "@/components/TableOfContents";
 import RelatedPosts from "@/components/RelatedPosts";
-import JsxPostRenderer from "@/components/JsxPostRenderer";
+import RuntimeJsxRenderer from "@/components/RuntimeJsxRenderer";
 
 export const dynamic = "force-dynamic";
 
@@ -122,7 +122,7 @@ export default async function PostPage({ params }: PageProps) {
         )}
 
         {post.contentType === "jsx" ? (
-          <JsxPostRenderer slug={post.slug.join("/")} />
+          <RuntimeJsxRenderer source={post.content} />
         ) : (
           <div
             className="prose prose-lg max-w-none"
