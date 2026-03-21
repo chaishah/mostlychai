@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getAllDrafts, getAllPostMeta, isPublishingConfigured, parseMarkdownPost, publishMarkdownPost, uploadImage } from "@/lib/posts";
+import fs from "fs";
+import path from "path";
+import { getAllDrafts, getAllPostMeta, isPublishingConfigured, JSX_POSTS_DIR, parseMarkdownPost, publishMarkdownPost, uploadImage, extractJsxCommentMeta } from "@/lib/posts";
 import FileDropZone from "@/components/FileDropZone";
 import ImageUploadZone from "@/components/ImageUploadZone";
 import ManageSection from "@/components/ManageSection";
@@ -33,6 +35,46 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Saves a JSX/TSX post to src/posts/ and registers it in jsx-registry.ts */
+function saveJsxPost(slug: string, source: string): void {
+  // Ensure src/posts/ exists
+  if (!fs.existsSync(JSX_POSTS_DIR)) {
+    fs.mkdirSync(JSX_POSTS_DIR, { recursive: true });
+  }
+
+  // Write the post file
+  const postPath = path.join(JSX_POSTS_DIR, `${slug}.tsx`);
+  fs.writeFileSync(postPath, source, "utf8");
+
+  // Update jsx-registry.ts
+  const registryPath = path.join(process.cwd(), "src/lib/jsx-registry.ts");
+  let registrySource = fs.readFileSync(registryPath, "utf8");
+
+  const entryLine = `  "${slug}": () => import("@/posts/${slug}"),`;
+
+  // Only add if not already present
+  if (!registrySource.includes(`"${slug}"`)) {
+    // Insert the new entry before the closing `};` of the registry object
+    const closingIndex = registrySource.lastIndexOf("};");
+    if (closingIndex !== -1) {
+      registrySource =
+        registrySource.slice(0, closingIndex) +
+        entryLine +
+        "\n" +
+        registrySource.slice(closingIndex);
+    }
+    fs.writeFileSync(registryPath, registrySource, "utf8");
+  }
+}
+
 async function publishAction(formData: FormData) {
   "use server";
 
@@ -46,6 +88,7 @@ async function publishAction(formData: FormData) {
     redirect("/publish?error=secret");
   }
 
+  const contentType = String(formData.get("content_type") ?? "md");
   const file = formData.get("file");
   const markdown = String(formData.get("markdown") ?? "").trim();
 
@@ -61,31 +104,48 @@ async function publishAction(formData: FormData) {
     redirect("/publish?error=empty");
   }
 
-  // Upload images and rewrite references in markdown
-  const imageFiles = formData
-    .getAll("images")
-    .filter((f): f is File => f instanceof File && f.size > 0);
-
   let redirectTo = "";
-  try {
-    if (imageFiles.length > 0) {
-      const imageMap = new Map<string, string>();
-      for (const img of imageFiles) {
-        const url = await uploadImage(img);
-        imageMap.set(img.name, url);
-      }
-      source = rewriteImagePaths(source, imageMap);
-    }
 
-    const parsed = parseMarkdownPost(source);
-    const result = await publishMarkdownPost(source);
-    revalidatePath("/");
-    revalidatePath(`/posts/${result.slug.join("/")}`);
-    const status = result.draft ? "draft" : "success";
-    redirectTo = `/publish?${status}=${encodeURIComponent(result.slug.join("/"))}&title=${encodeURIComponent(parsed.title)}`;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unable to publish post.";
-    redirectTo = `/publish?error=${encodeURIComponent(message)}`;
+  if (contentType === "jsx") {
+    // JSX post: save to src/posts/ and update registry
+    try {
+      const meta = extractJsxCommentMeta(source);
+      if (!meta.title) throw new Error("Missing `// title:` comment in JSX file.");
+      const slug = slugify(meta.title);
+      saveJsxPost(slug, source);
+      revalidatePath("/");
+      revalidatePath(`/posts/${slug}`);
+      redirectTo = `/publish?success=${encodeURIComponent(slug)}&title=${encodeURIComponent(meta.title)}`;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to save JSX post.";
+      redirectTo = `/publish?error=${encodeURIComponent(message)}`;
+    }
+  } else {
+    // Markdown post: upload images, publish to Supabase
+    const imageFiles = formData
+      .getAll("images")
+      .filter((f): f is File => f instanceof File && f.size > 0);
+
+    try {
+      if (imageFiles.length > 0) {
+        const imageMap = new Map<string, string>();
+        for (const img of imageFiles) {
+          const url = await uploadImage(img);
+          imageMap.set(img.name, url);
+        }
+        source = rewriteImagePaths(source, imageMap);
+      }
+
+      const parsed = parseMarkdownPost(source);
+      const result = await publishMarkdownPost(source);
+      revalidatePath("/");
+      revalidatePath(`/posts/${result.slug.join("/")}`);
+      const status = result.draft ? "draft" : "success";
+      redirectTo = `/publish?${status}=${encodeURIComponent(result.slug.join("/"))}&title=${encodeURIComponent(parsed.title)}`;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to publish post.";
+      redirectTo = `/publish?error=${encodeURIComponent(message)}`;
+    }
   }
 
   redirect(redirectTo);
@@ -101,7 +161,7 @@ function getAlert(params: Record<string, string | string[] | undefined>) {
   if (draft) return { tone: "success" as const, text: `Saved "${title || draft}" as a draft. Publish it from the manage section below.` };
   if (error === "config") return { tone: "error" as const, text: "Add NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and PUBLISH_SECRET to enable publishing." };
   if (error === "secret") return { tone: "error" as const, text: "Incorrect publish secret." };
-  if (error === "empty") return { tone: "error" as const, text: "Upload a .md file or paste markdown before publishing." };
+  if (error === "empty") return { tone: "error" as const, text: "Upload a .md or .jsx file before publishing." };
   if (error) return { tone: "error" as const, text: error };
   return null;
 }
@@ -154,7 +214,7 @@ export default async function PublishPage({
         {/* Primary: file upload */}
         <FileDropZone />
 
-        {/* Secondary: paste raw markdown */}
+        {/* Secondary: paste raw markdown (only shown for .md mode) */}
         <div className="flex items-center gap-4">
           <div className="h-px flex-1 bg-cream-200" />
           <span className="text-[0.68rem] text-ink-faint font-sans tracking-widest uppercase shrink-0">

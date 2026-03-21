@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getPost, getAllPostMeta, getRelatedPosts } from "@/lib/posts";
 import TableOfContents from "@/components/TableOfContents";
 import RelatedPosts from "@/components/RelatedPosts";
+import JsxPostRenderer from "@/components/JsxPostRenderer";
 
 export const dynamic = "force-dynamic";
 
@@ -116,12 +117,18 @@ export default async function PostPage({ params }: PageProps) {
           </div>
         </header>
 
-        {post.type !== "note" && <TableOfContents headings={post.headings} />}
+        {post.type !== "note" && post.contentType !== "jsx" && (
+          <TableOfContents headings={post.headings} />
+        )}
 
-        <div
-          className="prose prose-lg max-w-none"
-          dangerouslySetInnerHTML={{ __html: post.content }}
-        />
+        {post.contentType === "jsx" ? (
+          <JsxPostRenderer slug={post.slug.join("/")} />
+        ) : (
+          <div
+            className="prose prose-lg max-w-none"
+            dangerouslySetInnerHTML={{ __html: post.content }}
+          />
+        )}
       </article>
 
       <RelatedPosts posts={relatedPosts} />

@@ -10,8 +10,10 @@ import rehypeStringify from "rehype-stringify";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const CONTENT_DIR = path.join(process.cwd(), "content/posts");
+export const JSX_POSTS_DIR = path.join(process.cwd(), "src/posts");
 
 export type PostType = "post" | "note";
+export type ContentType = "markdown" | "jsx";
 
 export interface Heading {
   depth: number;
@@ -27,10 +29,11 @@ export interface PostMeta {
   tags: string[];
   readingTime: number;
   type: PostType;
+  contentType: ContentType;
 }
 
 export interface Post extends PostMeta {
-  content: string;
+  content: string; // rendered HTML for markdown, raw source for jsx
   headings: Heading[];
 }
 
@@ -107,6 +110,33 @@ function parseType(data: Record<string, unknown>): PostType {
   return data.type === "note" ? "note" : "post";
 }
 
+export function extractJsxCommentMeta(source: string): {
+  title: string;
+  date: string;
+  description: string;
+  tags: string[];
+  type: PostType;
+} {
+  const meta: Record<string, string> = {};
+  for (const line of source.split("\n")) {
+    const match = line.match(/^\/\/\s*(\w+):\s*(.+)$/);
+    if (match) {
+      meta[match[1].toLowerCase()] = match[2].trim();
+    } else if (line.trim() && !line.startsWith("//")) {
+      break;
+    }
+  }
+  return {
+    title: meta.title ?? "",
+    date: meta.date ? String(meta.date).slice(0, 10) : new Date().toISOString().slice(0, 10),
+    description: meta.description ?? "",
+    tags: meta.tags
+      ? meta.tags.split(",").map((t) => t.trim()).filter(Boolean)
+      : [],
+    type: meta.type === "note" ? "note" : "post",
+  };
+}
+
 function rowToMeta(row: StoredPostRow): PostMeta {
   // Parse type from the stored frontmatter — no schema column needed
   const { data } = matter(row.content_md);
@@ -118,6 +148,7 @@ function rowToMeta(row: StoredPostRow): PostMeta {
     tags: Array.isArray(row.tags) ? row.tags : [],
     readingTime: estimateReadingTime(row.content_md),
     type: parseType(data),
+    contentType: "markdown",
   };
 }
 
@@ -181,6 +212,31 @@ function collectMarkdownFiles(dir: string, base: string[] = []): string[][] {
   return result;
 }
 
+function collectJsxFiles(dir: string): string[][] {
+  if (!fs.existsSync(dir)) return [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const result: string[][] = [];
+
+  for (const entry of entries) {
+    if (entry.isFile() && (entry.name.endsWith(".tsx") || entry.name.endsWith(".jsx"))) {
+      const name = entry.name.replace(/\.(tsx|jsx)$/, "");
+      result.push([name]);
+    }
+  }
+
+  return result;
+}
+
+function resolveJsxFilePath(slug: string[]): string | null {
+  if (slug.length !== 1) return null;
+  const base = path.join(JSX_POSTS_DIR, slug[0]);
+  for (const ext of [".tsx", ".jsx"]) {
+    const p = base + ext;
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
 function resolveFilePath(slug: string[]): string | null {
   const asFile = path.join(CONTENT_DIR, ...slug) + ".md";
   if (fs.existsSync(asFile)) return asFile;
@@ -217,17 +273,17 @@ function getSupabaseAdmin(): SupabaseClient {
 }
 
 async function getAllPostMetaFromFiles(): Promise<PostMeta[]> {
-  const slugs = collectMarkdownFiles(CONTENT_DIR);
   const posts: PostMeta[] = [];
 
-  for (const slug of slugs) {
+  // Markdown posts from content/posts/
+  const mdSlugs = collectMarkdownFiles(CONTENT_DIR);
+  for (const slug of mdSlugs) {
     const filePath = resolveFilePath(slug);
     if (!filePath) continue;
 
     const raw = fs.readFileSync(filePath, "utf8");
     const { data, content } = matter(raw);
 
-    // Skip local drafts
     if (data.draft === true) continue;
 
     posts.push({
@@ -238,6 +294,28 @@ async function getAllPostMetaFromFiles(): Promise<PostMeta[]> {
       tags: Array.isArray(data.tags) ? data.tags : [],
       readingTime: estimateReadingTime(content),
       type: parseType(data),
+      contentType: "markdown",
+    });
+  }
+
+  // JSX posts from src/posts/
+  const jsxSlugs = collectJsxFiles(JSX_POSTS_DIR);
+  for (const slug of jsxSlugs) {
+    const filePath = resolveJsxFilePath(slug);
+    if (!filePath) continue;
+
+    const source = fs.readFileSync(filePath, "utf8");
+    const meta = extractJsxCommentMeta(source);
+
+    posts.push({
+      slug,
+      title: meta.title || slug[slug.length - 1],
+      date: meta.date,
+      description: meta.description,
+      tags: meta.tags,
+      readingTime: estimateReadingTime(source),
+      type: meta.type,
+      contentType: "jsx",
     });
   }
 
@@ -245,6 +323,26 @@ async function getAllPostMetaFromFiles(): Promise<PostMeta[]> {
 }
 
 async function getPostFromFiles(slug: string[]): Promise<Post | null> {
+  // Try JSX first (src/posts/)
+  const jsxPath = resolveJsxFilePath(slug);
+  if (jsxPath) {
+    const source = fs.readFileSync(jsxPath, "utf8");
+    const meta = extractJsxCommentMeta(source);
+    return {
+      slug,
+      title: meta.title || slug[slug.length - 1],
+      date: meta.date,
+      description: meta.description,
+      tags: meta.tags,
+      readingTime: estimateReadingTime(source),
+      content: source,
+      headings: [],
+      type: meta.type,
+      contentType: "jsx",
+    };
+  }
+
+  // Fall back to markdown (content/posts/)
   const filePath = resolveFilePath(slug);
   if (!filePath) return null;
 
@@ -261,6 +359,7 @@ async function getPostFromFiles(slug: string[]): Promise<Post | null> {
     content: await renderMarkdown(content),
     headings: extractHeadings(content),
     type: parseType(data),
+    contentType: "markdown",
   };
 }
 
@@ -454,7 +553,10 @@ export async function unpublishPost(slug: string): Promise<void> {
 
 export async function getAllSlugs(): Promise<string[][]> {
   if (!hasSupabaseConfig()) {
-    return collectMarkdownFiles(CONTENT_DIR);
+    return [
+      ...collectMarkdownFiles(CONTENT_DIR),
+      ...collectJsxFiles(JSX_POSTS_DIR),
+    ];
   }
 
   const admin = getSupabaseAdmin();
@@ -484,16 +586,45 @@ export async function getAllPostMeta(): Promise<PostMeta[]> {
     .eq("published", true)
     .order("date", { ascending: false });
 
-  if (error || !data) {
-    return [];
+  const supabasePosts: PostMeta[] = error || !data
+    ? []
+    : (data as StoredPostRow[]).map(rowToMeta);
+
+  // Merge in local JSX posts (always file-based)
+  const jsxSlugs = collectJsxFiles(JSX_POSTS_DIR);
+  const jsxPosts: PostMeta[] = [];
+  for (const slug of jsxSlugs) {
+    const filePath = resolveJsxFilePath(slug);
+    if (!filePath) continue;
+    const source = fs.readFileSync(filePath, "utf8");
+    const meta = extractJsxCommentMeta(source);
+    const slugStr = slug.join("/");
+    // Skip if already in supabase posts (shouldn't happen, but guard)
+    if (supabasePosts.some((p) => p.slug.join("/") === slugStr)) continue;
+    jsxPosts.push({
+      slug,
+      title: meta.title || slug[slug.length - 1],
+      date: meta.date,
+      description: meta.description,
+      tags: meta.tags,
+      readingTime: estimateReadingTime(source),
+      type: meta.type,
+      contentType: "jsx",
+    });
   }
 
-  return (data as StoredPostRow[]).map(rowToMeta);
+  return [...supabasePosts, ...jsxPosts].sort((a, b) => (b.date > a.date ? 1 : -1));
 }
 
 export async function getPost(slug: string[]): Promise<Post | null> {
   if (!hasSupabaseConfig()) {
     return getPostFromFiles(slug);
+  }
+
+  // Always check for a local JSX post first (file-based, not in Supabase)
+  const jsxPost = await getPostFromFiles(slug);
+  if (jsxPost && jsxPost.contentType === "jsx") {
+    return jsxPost;
   }
 
   const admin = getSupabaseAdmin();
