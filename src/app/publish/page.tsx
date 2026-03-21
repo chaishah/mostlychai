@@ -79,7 +79,7 @@ async function publishAction(formData: FormData) {
         if (titleField && !hasInlineTitle) {
           source = `// title: ${titleField}\n` + source;
         }
-        const result = await publishJsxPost(source);
+        const result = await publishJsxPost(source, titleField || undefined);
         const slug = result.slug.join("/");
         revalidatePath("/");
         revalidatePath(`/posts/${slug}`);
