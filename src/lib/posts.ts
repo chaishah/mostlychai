@@ -670,23 +670,29 @@ export async function getPost(slug: string[]): Promise<Post | null> {
   };
 }
 
-export async function publishJsxPost(source: string): Promise<{ slug: string[] }> {
+export async function publishJsxPost(
+  source: string,
+  titleOverride?: string
+): Promise<{ slug: string[] }> {
   const admin = getSupabaseAdmin();
-  const meta = extractJsxCommentMeta(source);
-  if (!meta.title) throw new Error("JSX post must have a // title: comment.");
+  // Strip BOM and normalize line endings before parsing
+  const normalized = source.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const meta = extractJsxCommentMeta(normalized);
+  const title = (titleOverride || meta.title || "").trim();
+  if (!title) throw new Error("A title is required. Fill in the title field or add a // title: comment.");
 
-  const slug = slugify(meta.title);
+  const slug = slugify(title);
 
   const { error } = await admin
     .from("posts")
     .upsert(
       {
         slug,
-        title: meta.title,
+        title,
         date: meta.date,
         description: meta.description,
         tags: meta.tags,
-        content_md: source,
+        content_md: normalized,
         content_type: "jsx",
         published: true,
         updated_at: new Date().toISOString(),
