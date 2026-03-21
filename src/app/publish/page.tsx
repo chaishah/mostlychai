@@ -118,9 +118,12 @@ async function publishAction(formData: FormData) {
       saveJsxPost(slug, source);
       revalidatePath("/");
       revalidatePath(`/posts/${slug}`);
-      redirectTo = `/publish?success=${encodeURIComponent(slug)}&title=${encodeURIComponent(meta.title)}`;
+      redirectTo = `/publish?success=${encodeURIComponent(slug)}&title=${encodeURIComponent(title)}`;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to save JSX post.";
+      const raw = err instanceof Error ? err.message : "Unable to save JSX post.";
+      const message = raw.includes("EROFS") || raw.includes("read-only")
+        ? "JSX posts can't be saved here — the Vercel filesystem is read-only. Publish locally with `npm run dev` instead."
+        : raw;
       redirectTo = `/publish?error=${encodeURIComponent(message)}`;
     }
   } else {
