@@ -5,10 +5,14 @@ create table if not exists public.posts (
   description text not null default '',
   tags text[] not null default '{}',
   content_md text not null,
+  content_type text not null default 'md',
   published boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Run this if the table already exists (adds the column without recreating):
+-- alter table public.posts add column if not exists content_type text not null default 'md';
 
 create or replace function public.set_posts_updated_at()
 returns trigger
