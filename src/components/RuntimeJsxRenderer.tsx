@@ -30,17 +30,18 @@ function compileJsx(source: string): ComponentType {
   // Normalize line endings first
   let code = source.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
-  // Strip leading metadata comments (// key: value lines at top of file)
-  code = code.replace(/^(?:\/\/[^\n]*\n?)*/, "").trimStart();
-
-  // Strip "use client" directive using startsWith to avoid regex edge cases
-  if (code.startsWith('"use client"') || code.startsWith("'use client'")) {
-    const newline = code.indexOf("\n");
-    code = (newline === -1 ? "" : code.slice(newline + 1)).trimStart();
+  // Strip metadata comments, "use client", and imports line-by-line
+  const kept: string[] = [];
+  let preambleDone = false;
+  for (const line of code.split("\n")) {
+    if (!preambleDone) {
+      const t = line.trim();
+      if (t === "" || /^\/\//.test(t) || t === '"use client";' || t === "'use client';" || t === '"use client"' || t === "'use client'" || /^import\s/.test(t)) continue;
+      preambleDone = true;
+    }
+    kept.push(line);
   }
-
-  // Strip import statements
-  code = code.replace(/^import\s[\s\S]*?from\s['"][^'"]+['"];?\n?/gm, "");
+  code = kept.join("\n");
 
   // Capture the exported default component name
   let componentName = "__DefaultExport__";
@@ -66,6 +67,7 @@ function compileJsx(source: string): ComponentType {
   const result = window.Babel.transform(code, {
     presets: ["react"],
     filename: "post.jsx",
+    sourceType: "script",
   });
 
   const factory = new Function(
