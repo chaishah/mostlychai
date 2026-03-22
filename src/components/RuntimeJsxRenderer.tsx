@@ -27,10 +27,13 @@ function loadBabel(): Promise<void> {
 }
 
 function compileJsx(source: string): ComponentType {
-  // Strip "use client" and import statements
-  let code = source
-    .replace(/^['"]use client['"];?\s*/m, "")
-    .replace(/^import\s[\s\S]*?from\s['"][^'"]+['"];?\s*/gm, "");
+  // Strip leading metadata comments (// key: value lines at top of file)
+  let code = source.replace(/^(?:\/\/[^\n]*\n?)*/, "").trimStart();
+
+  // Strip "use client" directive and import statements
+  code = code
+    .replace(/^['"]use client['"];?\n?/, "")
+    .replace(/^import\s[\s\S]*?from\s['"][^'"]+['"];?\n?/gm, "");
 
   // Capture the exported default component name
   let componentName = "__DefaultExport__";
