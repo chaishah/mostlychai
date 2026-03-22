@@ -28,7 +28,7 @@ function loadBabel(): Promise<void> {
 
 function compileJsx(source: string): ComponentType {
   // Strip leading metadata comments (// key: value lines at top of file)
-  let code = source.replace(/^(?:\/\/[^\n]*\n?)*/s, "").trimStart();
+  let code = source.replace(/^(?:\/\/[^\n]*\n?)*/, "").trimStart();
 
   // Strip "use client" directive and import statements
   code = code
